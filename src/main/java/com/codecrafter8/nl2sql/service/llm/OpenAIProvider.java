@@ -1,46 +1,35 @@
 package com.codecrafter8.nl2sql.service.llm;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
-/**
- * OpenAI LLM Provider implementation
- */
 @Slf4j
+@RequiredArgsConstructor
 @Service
 @ConditionalOnProperty(name = "llm.provider", havingValue = "openai")
 public class OpenAIProvider implements LLMProvider {
 
-    private static final String OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
-    public static final String MISSING_API_KEY_MSG = "OpenAI API key is not configured.";
-    @Value("${llm.openai.model:gpt-3.5-turbo}")
-    private String model;
-    @Value("${llm.openai.temperature:0.7}")
-    private double temperature;
-    @Value("${llm.openai.max-tokens:2000}")
-    private int maxTokens;
-    @Value("${llm.openai.api-key:}")
-    private String apiKey;
+    private final ChatClient chatClient;
 
     @Override
     public String generateSQL(String naturalLanguageQuery, String schemaContext) throws LLMException {
         log.debug("Generating SQL from natural language using OpenAI");
 
-        if (apiKey == null || apiKey.isEmpty()) {
-            throw new LLMException(MISSING_API_KEY_MSG);
-        }
-
         try {
-            String prompt = buildSQLGenerationPrompt(naturalLanguageQuery, schemaContext);
-
-            log.debug("Prepared prompt for OpenAI API");
-
-            // TODO: Implement actual OpenAI API call
-            // For now, return a dummy SQL query
-
-            return generateDummySQL(naturalLanguageQuery);
+            return chatClient.prompt()
+                    .system("""
+                            Jesteś ekspertem SQL. Na podstawie następującego schematu bazy danych i naturalnego języka zapytania,
+                            wygeneruj poprawne zapytanie SQL.
+                            Zwracaj WYŁĄCZNIE czysty kod zapytania SQL, bez formatowania Markdown (np. ```sql) i bez żadnych wyjaśnień.
+                            Zapytanie musi być poprawne i bezpieczne.""")
+                    .user(u -> u.text("Schemat bazy danych:\n{schema}\n\nZapytanie: {query}")
+                            .param("schema", schemaContext)
+                            .param("query", naturalLanguageQuery))
+                    .call()
+                    .content();
 
         } catch (Exception e) {
             log.error("Error generating SQL from LLM", e);
@@ -52,16 +41,13 @@ public class OpenAIProvider implements LLMProvider {
     public String explainSQL(String sqlQuery) throws LLMException {
         log.debug("Generating SQL explanation using OpenAI");
 
-        if (apiKey == null || apiKey.isEmpty()) {
-            throw new LLMException(MISSING_API_KEY_MSG);
-        }
-
         try {
-            String prompt = buildExplanationPrompt(sqlQuery);
-
-            // TODO: Implement actual OpenAI API call
-
-            return "To zapytanie pobiera dane z bazy danych. Rzeczywiste wyjaśnienie będzie wygenerowane przez LLM.";
+            return chatClient.prompt()
+                    .system("Jesteś analitykiem baz danych. Wyjaśniaj zapytania SQL krótko, zwięźle i bardzo prostym językiem zrozumiałym dla biznesu.")
+                    .user(u -> u.text("Wyjaśnij poniższe zapytanie:\n\n{sql}")
+                            .param("sql", sqlQuery))
+                    .call()
+                    .content();
 
         } catch (Exception e) {
             log.error("Error explaining SQL", e);
@@ -73,12 +59,8 @@ public class OpenAIProvider implements LLMProvider {
     public boolean validateQuery(String sqlQuery) throws LLMException {
         log.debug("Validating SQL query using OpenAI");
 
-        if (apiKey == null || apiKey.isEmpty()) {
-            throw new LLMException(MISSING_API_KEY_MSG);
-        }
-
         try {
-            // Basic validation - checking for dangerous operations
+            //todo
             String upperQuery = sqlQuery.toUpperCase();
 
             if (upperQuery.contains("DROP") || upperQuery.contains("DELETE") ||
@@ -87,42 +69,15 @@ public class OpenAIProvider implements LLMProvider {
                 return false;
             }
 
-            return true;
+            return chatClient.prompt()
+                    .system("Jesteś rygorystycznym systemem bezpieczeństwa bazy danych. Twoim zadaniem jest ocenić, czy zapytanie służy WYŁĄCZNIE do odczytu danych (SELECT). Odpowiedz 'true' jeśli jest bezpieczne, lub 'false' jeśli zawiera próby modyfikacji struktury lub danych (np. DROP, DELETE, INSERT, UPDATE, ALTER).")
+                    .user(sqlQuery)
+                    .call()
+                    .entity(Boolean.class);
 
         } catch (Exception e) {
             log.error("Error validating SQL", e);
             throw new LLMException("Failed to validate SQL: " + e.getMessage(), e);
         }
-    }
-
-    private String buildSQLGenerationPrompt(String naturalLanguageQuery, String schemaContext) {
-        return String.format("""
-                Jesteś ekspertem SQL. Na podstawie następującego schematu bazy danych i naturalnego języka zapytania,
-                wygeneruj poprawne zapytanie SQL.
-                
-                Schemat bazy danych:
-                %s
-                
-                Zapytanie w języku naturalnym: %s
-                
-                Wygeneruj TYLKO zapytanie SQL bez żadnego wyjaśnienia. Zapytanie powinno być poprawne i bezpieczne do wykonania.
-                Zacznij odpowiedź bezpośrednio od SELECT, FROM, WHERE lub innych słów kluczowych SQL.
-                """, schemaContext, naturalLanguageQuery);
-    }
-
-    private String buildExplanationPrompt(String sqlQuery) {
-        return String.format("""
-                Wyjaśnij następujące zapytanie SQL prostym językiem:
-                
-                %s
-                
-                Podaj krótkie wyjaśnienie tego, co to zapytanie robi.
-                """, sqlQuery);
-    }
-
-    private String generateDummySQL(String naturalLanguageQuery) {
-        // Dummy implementation for testing
-        log.info("Generating dummy SQL for: {}", naturalLanguageQuery);
-        return "SELECT * FROM users LIMIT 10";
     }
 }
