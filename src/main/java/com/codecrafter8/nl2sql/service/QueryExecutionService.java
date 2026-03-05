@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Service responsible for converting natural language queries to SQL
@@ -26,6 +27,7 @@ public class QueryExecutionService {
     private final QueryLogRepository queryLogRepository;
     private final SchemaIntrospectionService schemaIntrospectionService;
     private final SQLValidationService sqlValidationService;
+    private final SQLExecutionService sqlExecutionService;
     private final ObjectProvider<LLMProvider> llmProvider;
 
     /**
@@ -68,20 +70,39 @@ public class QueryExecutionService {
                 return buildErrorResponse(queryLog);
             }
 
-            // Execute SQL - stub for now
-            // List<Map<String, Object>> results = sqlExecutionService.executeQuery(generatedSQL);
+            // Check if query is read-only
+            if (!sqlExecutionService.isReadOnlyQuery(generatedSQL)) {
+                queryLog.setStatus(QueryLog.QueryStatus.INVALID_SQL);
+                queryLog.setError("Only SELECT queries are allowed");
+                queryLog.setExecutionTimeMs(System.currentTimeMillis() - startTime);
+                queryLogRepository.save(queryLog);
 
+                return buildErrorResponse(queryLog);
+            }
+
+            // Execute SQL query
+            List<Map<String, Object>> results = sqlExecutionService.executeQuery(generatedSQL);
+
+            // Get SQL explanation if requested
+            String explanation = null;
             if (request.isExplainSql()) {
-                String explanation = provider.explainSQL(generatedSQL);
-                // Include in response
+                explanation = provider.explainSQL(generatedSQL);
             }
 
             queryLog.setStatus(QueryLog.QueryStatus.SUCCESS);
             queryLog.setExecutionTimeMs(System.currentTimeMillis() - startTime);
             queryLogRepository.save(queryLog);
 
-            return buildSuccessResponse(queryLog);
+            return buildSuccessResponse(queryLog, results, explanation);
 
+        } catch (SQLExecutionService.SQLExecutionException e) {
+            log.error("SQL execution error: {}", e.getMessage());
+            queryLog.setStatus(QueryLog.QueryStatus.ERROR);
+            queryLog.setError("SQL execution failed: " + e.getMessage());
+            queryLog.setExecutionTimeMs(System.currentTimeMillis() - startTime);
+            queryLogRepository.save(queryLog);
+
+            return buildErrorResponse(queryLog);
         } catch (LLMException e) {
             log.error("LLM error: {}", e.getMessage());
             queryLog.setStatus(QueryLog.QueryStatus.ERROR);
@@ -120,14 +141,16 @@ public class QueryExecutionService {
         return queryLogRepository.findById(id).orElse(null);
     }
 
-    private QueryResponse buildSuccessResponse(QueryLog queryLog) {
+    private QueryResponse buildSuccessResponse(QueryLog queryLog, List<Map<String, Object>> results, String explanation) {
         return QueryResponse.builder()
                 .id(queryLog.getId())
                 .naturalLanguageQuery(queryLog.getNaturalLanguageQuery())
                 .generatedSql(queryLog.getGeneratedSql())
+                .sqlExplanation(explanation)
+                .results(results)
+                .rowCount(results != null ? results.size() : 0)
                 .status(queryLog.getStatus().toString())
                 .executionTimeMs(queryLog.getExecutionTimeMs())
-                .rowCount(0) // TODO: Set actual row count
                 .build();
     }
 

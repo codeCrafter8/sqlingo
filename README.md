@@ -2,7 +2,8 @@
 
 > **Convert Natural Language Questions to SQL Queries using AI**
 
-A Spring Boot application that transforms natural language queries into SQL using Large Language Models (LLMs) like OpenAI GPT.
+A Spring Boot application that transforms natural language queries into SQL using Large Language Models (LLMs) like
+OpenAI GPT.
 
 [![Java](https://img.shields.io/badge/Java-21-blue.svg)](https://www.java.com)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.3-brightgreen.svg)](https://spring.io/projects/spring-boot)
@@ -13,16 +14,19 @@ A Spring Boot application that transforms natural language queries into SQL usin
 ## 🎯 Features
 
 - **🔄 Natural Language to SQL** - Ask questions in plain English, get SQL queries
+- **⚡ Real SQL Execution** - Execute generated SQL queries and get actual results
 - **🤖 AI-Powered** - Integrates with OpenAI GPT models
 - **📊 Schema Management** - Automatic database schema introspection
 - **📝 Query Logging** - Complete audit trail of all executed queries
-- **🔒 Secure** - SQL injection protection and query validation
+- **🔒 Secure** - SQL injection protection and query validation (SELECT only)
 - **📚 REST API** - Clean, documented REST endpoints
 - **🗄️ Multi-Database** - H2 (dev) and PostgreSQL (prod) support
+- **🎯 Auto Row Limiting** - Automatic LIMIT clause to prevent large result sets
 
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Java 21+
 - Maven 3.8+
 - OpenAI API Key (for LLM functionality)
@@ -58,14 +62,15 @@ curl -X POST http://localhost:8080/api/v1/query/execute \
 
 ## 📚 Documentation
 
-| Document | Description | Language |
-|----------|-------------|----------|
-| **[GETTING_STARTED.md](GETTING_STARTED.md)** | Quick start guide | 🇬🇧 English |
-| **[QUICK_START.md](QUICK_START.md)** | Detailed setup guide | 🇵🇱 Polish |
-| **[README_PL.md](README_PL.md)** | Full documentation | 🇵🇱 Polish |
-| **[EXAMPLES.md](EXAMPLES.md)** | API request examples | 🇬🇧 English |
-| **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** | Project organization | 🇬🇧 English |
-| **[COMPLETION_SUMMARY.md](COMPLETION_SUMMARY.md)** | Project status | 🇬🇧 English |
+| Document                                           | Description          | Language     |
+|----------------------------------------------------|----------------------|--------------|
+| **[GETTING_STARTED.md](GETTING_STARTED.md)**       | Quick start guide    | 🇬🇧 English |
+| **[QUICK_START.md](QUICK_START.md)**               | Detailed setup guide | 🇵🇱 Polish  |
+| **[README_PL.md](README_PL.md)**                   | Full documentation   | 🇵🇱 Polish  |
+| **[EXAMPLES.md](EXAMPLES.md)**                     | API request examples | 🇬🇧 English |
+| **[SQL_EXECUTION_DOCS.md](SQL_EXECUTION_DOCS.md)** | SQL execution guide  | 🇵🇱 Polish  |
+| **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)**   | Project organization | 🇬🇧 English |
+| **[COMPLETION_SUMMARY.md](COMPLETION_SUMMARY.md)** | Project status       | 🇬🇧 English |
 
 ## 🏗️ Architecture
 
@@ -74,15 +79,16 @@ curl -X POST http://localhost:8080/api/v1/query/execute \
 │           REST API (HTTP)               │
 │  POST /api/v1/query/execute             │
 │  GET  /api/v1/query/history             │
-│  GET  /api/v1/schema/schemaTables             │
+│  GET  /api/v1/schema/schemaTables       │
 └────────────────┬────────────────────────┘
                  │
 ┌────────────────▼────────────────────────┐
 │      Service Layer                      │
 │  - QueryExecutionService                │
+│  - SQLExecutionService (NEW)            │
 │  - SchemaIntrospectionService           │
 │  - SQLValidationService                 │
-│  - LLMProvider (OpenAI)                  │
+│  - LLMProvider (OpenAI)                 │
 └────────────────┬────────────────────────┘
                  │
 ┌────────────────▼────────────────────────┐
@@ -93,14 +99,16 @@ curl -X POST http://localhost:8080/api/v1/query/execute \
                  │
 ┌────────────────▼────────────────────────┐
 │         Database (H2/PostgreSQL)        │
-│  - query_logs schemaTable                     │
-│  - schema_tables schemaTable                  │
+│  - query_logs table                     │
+│  - schema_tables table                  │
+│  - User data tables (employees, etc.)   │
 └─────────────────────────────────────────┘
 ```
 
 ## 📋 API Endpoints
 
 ### Query Management
+
 ```
 POST   /api/v1/query/execute       Execute NL query → SQL
 GET    /api/v1/query/history       Get query history
@@ -109,6 +117,7 @@ GET    /api/v1/query/health        Health check
 ```
 
 ### Schema Management
+
 ```
 GET    /api/v1/schema/schemaTables       List database schemaTables
 GET    /api/v1/schema/context      Get schema for LLM
@@ -118,6 +127,7 @@ POST   /api/v1/schema/schemaTables/register  Register new schemaTable
 ## 💻 Example Usage
 
 ### cURL
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/query/execute \
   -H "Content-Type: application/json" \
@@ -129,6 +139,7 @@ curl -X POST http://localhost:8080/api/v1/query/execute \
 ```
 
 ### JavaScript
+
 ```javascript
 const response = await fetch('http://localhost:8080/api/v1/query/execute', {
   method: 'POST',
@@ -144,6 +155,7 @@ console.log('Generated SQL:', result.generatedSql);
 ```
 
 ### Python
+
 ```python
 import requests
 
@@ -163,14 +175,13 @@ print(f"SQL: {data['generatedSql']}")
 ## 🔧 Configuration
 
 ### Application Properties
+
 ```properties
 # Server
 server.port=8080
-
 # Database (H2 for development)
 spring.datasource.url=jdbc:h2:mem:testdb
 spring.jpa.hibernate.ddl-auto=create-drop
-
 # LLM Configuration
 llm.provider=openai
 llm.openai.api-key=${OPENAI_API_KEY}
@@ -179,6 +190,7 @@ llm.openai.temperature=0.7
 ```
 
 ### Environment Variables
+
 ```bash
 # Required for LLM functionality
 export OPENAI_API_KEY=sk-your-key-here
@@ -202,6 +214,7 @@ See [QUICK_START.md](QUICK_START.md) for details.
 ## 🛠️ Development
 
 ### Build & Test
+
 ```bash
 # Compile
 mvn clean compile
@@ -217,6 +230,7 @@ mvn spring-boot:run
 ```
 
 ### Docker
+
 ```bash
 # Build image
 docker build -t nl2sql-engine .
@@ -252,11 +266,13 @@ nl2sql-engine/
 ## 🚀 Deployment
 
 ### Development
+
 ```bash
 mvn spring-boot:run
 ```
 
 ### Production
+
 ```bash
 # Build JAR
 mvn clean package -DskipTests
@@ -266,6 +282,7 @@ java -jar target/nl2sql-engine-0.0.1-SNAPSHOT.jar
 ```
 
 ### Docker Compose
+
 ```yaml
 version: '3.8'
 services:
@@ -281,16 +298,16 @@ services:
 
 ## 🎓 Components
 
-| Component | Type | Purpose |
-|-----------|------|---------|
-| QueryController | REST | Handle NL to SQL requests |
-| SchemaController | REST | Manage database schema |
-| QueryExecutionService | Service | Query processing pipeline |
-| SchemaIntrospectionService | Service | Database introspection |
-| SQLValidationService | Service | SQL safety validation |
-| OpenAIProvider | Service | LLM integration |
-| QueryLog | Entity | Query history tracking |
-| Table | Entity | Schema metadata |
+| Component                  | Type    | Purpose                   |
+|----------------------------|---------|---------------------------|
+| QueryController            | REST    | Handle NL to SQL requests |
+| SchemaController           | REST    | Manage database schema    |
+| QueryExecutionService      | Service | Query processing pipeline |
+| SchemaIntrospectionService | Service | Database introspection    |
+| SQLValidationService       | Service | SQL safety validation     |
+| OpenAIProvider             | Service | LLM integration           |
+| QueryLog                   | Entity  | Query history tracking    |
+| Table                      | Entity  | Schema metadata           |
 
 ## 🧪 Testing
 
@@ -319,6 +336,7 @@ mvn test jacoco:report
 ## 🐛 Troubleshooting
 
 ### OpenAI API Key Not Found
+
 ```bash
 # Windows
 set OPENAI_API_KEY=sk-your-key
@@ -328,12 +346,14 @@ export OPENAI_API_KEY=sk-your-key
 ```
 
 ### Port 8080 Already in Use
+
 ```bash
 # Change port in application.properties
 server.port=8081
 ```
 
 ### Build Errors
+
 ```bash
 # Clean build
 mvn clean install -DskipTests
@@ -374,24 +394,28 @@ Contributions are welcome! Please:
 ## 📌 Roadmap
 
 ### Version 0.1.0
+
 - [ ] Implement OpenAI API integration
 - [ ] Add unit tests
 - [ ] Add integration tests
 - [ ] API documentation (Swagger)
 
 ### Version 0.2.0
+
 - [ ] Multiple LLM provider support
 - [ ] Advanced SQL validation
 - [ ] Query result caching
 - [ ] Performance optimization
 
 ### Version 0.3.0
+
 - [ ] Web UI (React/Vue)
 - [ ] Authentication & Authorization
 - [ ] Multi-user support
 - [ ] Database migration tools
 
 ### Version 1.0.0
+
 - [ ] Production deployment
 - [ ] Monitoring & alerting
 - [ ] Backup & recovery
