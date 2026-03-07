@@ -20,7 +20,7 @@ OpenAI GPT.
 - **📝 Query Logging** - Complete audit trail of all executed queries
 - **🔒 Secure** - SQL injection protection and query validation (SELECT only)
 - **📚 REST API** - Clean, documented REST endpoints
-- **🗄️ Multi-Database** - H2 (dev) and PostgreSQL (prod) support
+- **🎓 Spider Dataset** - Includes Yale University's Spider benchmark hospital database
 - **🎯 Auto Row Limiting** - Automatic LIMIT clause to prevent large result sets
 
 ## 🚀 Quick Start
@@ -71,6 +71,7 @@ curl -X POST http://localhost:8080/api/v1/query/execute \
 | **[SQL_EXECUTION_DOCS.md](SQL_EXECUTION_DOCS.md)** | SQL execution guide  | 🇵🇱 Polish  |
 | **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)**   | Project organization | 🇬🇧 English |
 | **[COMPLETION_SUMMARY.md](COMPLETION_SUMMARY.md)** | Project status       | 🇬🇧 English |
+| **[SPIDER_DATABASE.md](SPIDER_DATABASE.md)**       | Spider dataset guide | 🇬🇧 English |
 
 ## 🏗️ Architecture
 
@@ -79,13 +80,13 @@ curl -X POST http://localhost:8080/api/v1/query/execute \
 │           REST API (HTTP)               │
 │  POST /api/v1/query/execute             │
 │  GET  /api/v1/query/history             │
-│  GET  /api/v1/schema/schemaTables       │
+│  GET  /api/v1/schema/tables             │
 └────────────────┬────────────────────────┘
                  │
 ┌────────────────▼────────────────────────┐
 │      Service Layer                      │
 │  - QueryExecutionService                │
-│  - SQLExecutionService (NEW)            │
+│  - SQLExecutionService                  │
 │  - SchemaIntrospectionService           │
 │  - SQLValidationService                 │
 │  - LLMProvider (OpenAI)                 │
@@ -94,14 +95,14 @@ curl -X POST http://localhost:8080/api/v1/query/execute \
 ┌────────────────▼────────────────────────┐
 │      Repository Layer (JPA)             │
 │  - QueryLogRepository                   │
-│  - TableRepository                      │
 └────────────────┬────────────────────────┘
                  │
 ┌────────────────▼────────────────────────┐
-│         Database (H2/PostgreSQL)        │
-│  - query_logs table                     │
-│  - schema_tables table                  │
-│  - User data tables (employees, etc.)   │
+│    Database (SQLite - Spider)           │
+│  - Spider Hospital Database             │
+│    (physician, patient, appointment,    │
+│     medication, procedures, etc.)       │
+│  - query_logs table (auto-created)      │
 └─────────────────────────────────────────┘
 ```
 
@@ -119,9 +120,9 @@ GET    /api/v1/query/health        Health check
 ### Schema Management
 
 ```
-GET    /api/v1/schema/schemaTables       List database schemaTables
-GET    /api/v1/schema/context      Get schema for LLM
-POST   /api/v1/schema/schemaTables/register  Register new schemaTable
+GET    /api/v1/schema/tables           List database tables
+GET    /api/v1/schema/tables/{name}    Get specific table schema
+GET    /api/v1/schema/context          Get schema for LLM
 ```
 
 ## 💻 Example Usage
@@ -298,16 +299,16 @@ services:
 
 ## 🎓 Components
 
-| Component                  | Type    | Purpose                   |
-|----------------------------|---------|---------------------------|
-| QueryController            | REST    | Handle NL to SQL requests |
-| SchemaController           | REST    | Manage database schema    |
-| QueryExecutionService      | Service | Query processing pipeline |
-| SchemaIntrospectionService | Service | Database introspection    |
-| SQLValidationService       | Service | SQL safety validation     |
-| OpenAIProvider             | Service | LLM integration           |
-| QueryLog                   | Entity  | Query history tracking    |
-| Table                      | Entity  | Schema metadata           |
+| Component                  | Type    | Purpose                        |
+|----------------------------|---------|--------------------------------|
+| QueryController            | REST    | Handle NL to SQL requests      |
+| SchemaController           | REST    | Database schema information    |
+| QueryExecutionService      | Service | Query processing pipeline      |
+| SchemaIntrospectionService | Service | Spider DB schema introspection |
+| SQLValidationService       | Service | SQL safety validation          |
+| SQLExecutionService        | Service | Execute SQL against Spider DB  |
+| OpenAIProvider             | Service | LLM integration                |
+| QueryLog                   | Entity  | Query history tracking         |
 
 ## 🧪 Testing
 
