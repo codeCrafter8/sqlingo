@@ -52,10 +52,11 @@ public class QueryExecutionService {
             String schemaContext = schemaIntrospectionService.getSchemaContextForLLM();
 
             // Generate SQL using LLM
-            String generatedSQL = provider.generateSQL(
+            /*String generatedSQL = provider.generateSQL(
                     request.getNaturalLanguageQuery(),
                     schemaContext
-            );
+            );*/
+            String generatedSQL = "SELECT * FROM patients WHERE age > 60;"; // TODO: Remove hardcoded SQL after testing
 
             log.info("Generated SQL: {}", generatedSQL);
             queryLog.setGeneratedSql(generatedSQL);
