@@ -25,10 +25,10 @@ import java.util.Map;
 public class QueryExecutionService {
 
     private final QueryLogRepository queryLogRepository;
-    private final SchemaIntrospectionService schemaIntrospectionService;
     private final SQLValidationService sqlValidationService;
     private final SQLExecutionService sqlExecutionService;
     private final ObjectProvider<LLMProvider> llmProvider;
+    private final TableContextRetriever tableContextRetriever;
 
     /**
      * Execute a natural language query and return results
@@ -48,15 +48,16 @@ public class QueryExecutionService {
                 throw new LLMException("No LLM provider configured");
             }
 
-            // Get database schema context
-            String schemaContext = schemaIntrospectionService.getSchemaContextForLLM();
+            // Get relevant schema context using RAG (Vector-based retrieval)
+            String schemaContext = tableContextRetriever.retrieveRelevantSchemaContext(
+                    request.getNaturalLanguageQuery()
+            );
 
-            // Generate SQL using LLM
-            /*String generatedSQL = provider.generateSQL(
+            // Generate SQL using LLM with focused schema context
+            String generatedSQL = provider.generateSQL(
                     request.getNaturalLanguageQuery(),
                     schemaContext
-            );*/
-            String generatedSQL = "SELECT * FROM patients WHERE age > 60;"; // TODO: Remove hardcoded SQL after testing
+            );
 
             log.info("Generated SQL: {}", generatedSQL);
             queryLog.setGeneratedSql(generatedSQL);
