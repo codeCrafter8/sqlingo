@@ -73,7 +73,7 @@ public class SchemaIntrospectionService {
     /**
      * Get all tables from the database schema
      */
-    private List<String> getAllTables() {
+    public List<String> getAllTables() {
         log.debug("Fetching all tables from database schema");
         List<String> tables = new ArrayList<>();
 
@@ -95,7 +95,7 @@ public class SchemaIntrospectionService {
     /**
      * Get detailed schema information for a specific table
      */
-    private Map<String, String> getTableSchema(String tableName) {
+    public Map<String, String> getTableSchema(String tableName) {
         log.debug("Fetching schema for table: {}", tableName);
         Map<String, String> columns = new LinkedHashMap<>();
 
@@ -125,7 +125,7 @@ public class SchemaIntrospectionService {
     /**
      * Get primary keys for a table
      */
-    private List<String> getPrimaryKeys(String tableName) {
+    public List<String> getPrimaryKeys(String tableName) {
         List<String> primaryKeys = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection()) {
@@ -145,7 +145,7 @@ public class SchemaIntrospectionService {
     /**
      * Get foreign keys for a table
      */
-    private Map<String, String> getForeignKeys(String tableName) {
+    public Map<String, String> getForeignKeys(String tableName) {
         Map<String, String> foreignKeys = new LinkedHashMap<>();
 
         try (Connection conn = dataSource.getConnection()) {
