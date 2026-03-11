@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 /**
  * Service for retrieving relevant tables using RAG (Retrieval-Augmented Generation)
@@ -66,7 +65,7 @@ public class TableContextRetriever {
                     .map(doc -> doc.getMetadata().get("table_name"))
                     .filter(Objects::nonNull)
                     .map(Object::toString)
-                    .collect(Collectors.toList());
+                    .toList();
 
             log.info("Retrieved {} relevant tables: {}", relevantTables.size(), relevantTables);
 

@@ -75,6 +75,8 @@ public class SchemaIntrospectionService {
      */
     public List<String> getAllTables() {
         log.debug("Fetching all tables from database schema");
+
+        List<String> ignoredTables = List.of("query_logs");
         List<String> tables = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection()) {
@@ -83,7 +85,9 @@ public class SchemaIntrospectionService {
 
             while (rs.next()) {
                 String tableName = rs.getString("TABLE_NAME");
-                tables.add(tableName);
+                if (!ignoredTables.contains(tableName.toLowerCase())) {
+                    tables.add(tableName);
+                }
             }
         } catch (Exception e) {
             log.error("Error fetching tables from database", e);

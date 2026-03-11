@@ -10,10 +10,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Service responsible for indexing database schema into vector store
@@ -59,6 +56,8 @@ public class SchemaEmbeddingIndexer {
                 TableSchemaDocument schemaDoc = buildTableSchemaDocument(tableName);
                 String embeddingText = schemaDoc.toEmbeddingText();
 
+                String deterministicId = UUID.nameUUIDFromBytes(tableName.getBytes()).toString();
+
                 // Create Spring AI Document for vector store
                 Map<String, Object> metadata = new HashMap<>();
                 metadata.put("table_name", tableName);
@@ -66,13 +65,13 @@ public class SchemaEmbeddingIndexer {
                 metadata.put("has_fk", !schemaDoc.getForeignKeys().isEmpty());
 
                 Document doc = new Document(
-                        tableName, // ID
+                        deterministicId,
                         embeddingText,
                         metadata
                 );
 
                 documents.add(doc);
-                log.debug("Prepared document for table: {}", tableName);
+                log.debug("Prepared document for table: {} (ID: {})", tableName, deterministicId);
 
             } catch (Exception e) {
                 log.error("Failed to build schema document for table: {}", tableName, e);
@@ -81,6 +80,18 @@ public class SchemaEmbeddingIndexer {
 
         // Add all documents to vector store
         if (!documents.isEmpty()) {
+            try {
+                // Re-index is idempotent: remove existing vectors for the same table IDs first.
+                List<String> idsToDelete = tableNames.stream()
+                        .map(name -> UUID.nameUUIDFromBytes(name.getBytes()).toString())
+                        .toList();
+
+                log.debug("Deleting {} existing entries from vector store before re-indexing", idsToDelete.size());
+                vectorStore.delete(idsToDelete);
+            } catch (Exception e) {
+                log.debug("Could not delete existing vectors before re-index; continuing with add", e);
+            }
+
             vectorStore.add(documents);
             log.info("Successfully indexed {} tables into vector store", documents.size());
         } else {
