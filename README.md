@@ -30,6 +30,7 @@ OpenAI GPT.
 - Java 21+
 - Maven 3.8+
 - OpenAI API Key (for LLM functionality)
+- PostgreSQL 14+ with `pgvector` extension (for vector store)
 
 ### Installation
 
@@ -195,6 +196,11 @@ llm.openai.temperature=0.7
 ```bash
 # Required for LLM functionality
 export OPENAI_API_KEY=sk-your-key-here
+
+# PGVector (recommended for local run)
+export PGVECTOR_DATASOURCE_URL=jdbc:postgresql://localhost:5432/nl2sql
+export PGVECTOR_DATASOURCE_USERNAME=postgres
+export PGVECTOR_DATASOURCE_PASSWORD=postgres
 
 # Optional
 export SPRING_PROFILES_ACTIVE=production
