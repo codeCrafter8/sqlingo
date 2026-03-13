@@ -12,19 +12,22 @@ import org.springframework.stereotype.Service;
 @ConditionalOnProperty(name = "llm.provider", havingValue = "openai")
 public class OpenAIProvider implements LLMProvider {
 
+    private static final String GENERATE_SQL_SYSTEM_PROMPT = "prompts/openai/generate-sql-system.txt";
+    private static final String EXPLAIN_SQL_SYSTEM_PROMPT = "prompts/openai/explain-sql-system.txt";
+    private static final String VALIDATE_QUERY_SYSTEM_PROMPT = "prompts/openai/validate-query-system.txt";
+
     private final ChatClient chatClient;
+    private final PromptLoader promptLoader;
 
     @Override
     public String generateSQL(String naturalLanguageQuery, String schemaContext) throws LLMException {
         log.debug("Generating SQL from natural language using OpenAI");
 
+        String ptompt = promptLoader.loadPrompt(GENERATE_SQL_SYSTEM_PROMPT);
+
         try {
             return chatClient.prompt()
-                    .system("""
-                            Jesteś ekspertem SQL. Na podstawie następującego schematu bazy danych i naturalnego języka zapytania,
-                            wygeneruj poprawne zapytanie SQL.
-                            Zwracaj WYŁĄCZNIE czysty kod zapytania SQL, bez formatowania Markdown (np. ```sql) i bez żadnych wyjaśnień.
-                            Zapytanie musi być poprawne i bezpieczne.""")
+                    .system(promptLoader.loadPrompt(GENERATE_SQL_SYSTEM_PROMPT))
                     .user(u -> u.text("Schemat bazy danych:\n{schema}\n\nZapytanie: {query}")
                             .param("schema", schemaContext)
                             .param("query", naturalLanguageQuery))
@@ -43,7 +46,7 @@ public class OpenAIProvider implements LLMProvider {
 
         try {
             return chatClient.prompt()
-                    .system("Jesteś analitykiem baz danych. Wyjaśniaj zapytania SQL krótko, zwięźle i bardzo prostym językiem zrozumiałym dla biznesu.")
+                    .system(promptLoader.loadPrompt(EXPLAIN_SQL_SYSTEM_PROMPT))
                     .user(u -> u.text("Wyjaśnij poniższe zapytanie:\n\n{sql}")
                             .param("sql", sqlQuery))
                     .call()
@@ -70,7 +73,7 @@ public class OpenAIProvider implements LLMProvider {
             }
 
             return chatClient.prompt()
-                    .system("Jesteś rygorystycznym systemem bezpieczeństwa bazy danych. Twoim zadaniem jest ocenić, czy zapytanie służy WYŁĄCZNIE do odczytu danych (SELECT). Odpowiedz 'true' jeśli jest bezpieczne, lub 'false' jeśli zawiera próby modyfikacji struktury lub danych (np. DROP, DELETE, INSERT, UPDATE, ALTER).")
+                    .system(promptLoader.loadPrompt(VALIDATE_QUERY_SYSTEM_PROMPT))
                     .user(sqlQuery)
                     .call()
                     .entity(Boolean.class);
