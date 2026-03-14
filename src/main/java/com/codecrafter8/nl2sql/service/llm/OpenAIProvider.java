@@ -23,8 +23,6 @@ public class OpenAIProvider implements LLMProvider {
     public String generateSQL(String naturalLanguageQuery, String schemaContext) throws LLMException {
         log.debug("Generating SQL from natural language using OpenAI");
 
-        String ptompt = promptLoader.loadPrompt(GENERATE_SQL_SYSTEM_PROMPT);
-
         try {
             return chatClient.prompt()
                     .system(promptLoader.loadPrompt(GENERATE_SQL_SYSTEM_PROMPT))
