@@ -1,0 +1,11 @@
+TWOJE POPRZEDNIE ZAPYTANIE WYGENEROWAŁO BŁĄD.
+
+Pytanie użytkownika: %s
+Błędne zapytanie SQL: %s
+Błąd z silnika bazy danych (SQLite): %s
+
+INSTRUKCJA NAPRAWCZA:
+1. Przeanalizuj treść błędu i popraw zapytanie.
+2. Upewnij się, że używasz poprawnych nazw tabel i kolumn ze schematu.
+3. Jeśli błąd sugeruje brak kolumny, sprawdź czy nie pomyliłeś tabel w JOIN.
+4. Zwróć WYŁĄCZNIE poprawiony, czysty kod SQL (SELECT) bez żadnych komentarzy.
