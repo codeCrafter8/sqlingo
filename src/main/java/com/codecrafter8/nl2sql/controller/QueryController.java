@@ -4,6 +4,7 @@ import com.codecrafter8.nl2sql.dto.QueryRequest;
 import com.codecrafter8.nl2sql.dto.QueryResponse;
 import com.codecrafter8.nl2sql.model.QueryLog;
 import com.codecrafter8.nl2sql.service.QueryExecutionService;
+import com.codecrafter8.nl2sql.service.QueryLogService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 public class QueryController {
 
     private final QueryExecutionService queryExecutionService;
+    private final QueryLogService queryLogService;
 
     /**
      * Execute a natural language query and return SQL and results
@@ -44,7 +46,7 @@ public class QueryController {
     public ResponseEntity<?> getQueryHistory(@RequestParam(defaultValue = "10") int limit) {
         log.info("Fetching query history with limit: {}", limit);
 
-        var history = queryExecutionService.getQueryHistory(limit);
+        var history = queryLogService.getHistory(limit);
 
         return ResponseEntity.ok(history);
     }
@@ -56,7 +58,7 @@ public class QueryController {
     public ResponseEntity<QueryLog> getQueryLog(@PathVariable Long id) {
         log.info("Fetching query log with id: {}", id);
 
-        QueryLog queryLog = queryExecutionService.getQueryLog(id);
+        QueryLog queryLog = queryLogService.getLogById(id);
 
         if (queryLog == null) {
             return ResponseEntity.notFound().build();
