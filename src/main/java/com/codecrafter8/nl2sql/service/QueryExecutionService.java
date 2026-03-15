@@ -3,9 +3,9 @@ package com.codecrafter8.nl2sql.service;
 import com.codecrafter8.nl2sql.dto.QueryRequest;
 import com.codecrafter8.nl2sql.dto.QueryResponse;
 import com.codecrafter8.nl2sql.model.QueryLog;
-import com.codecrafter8.nl2sql.repository.QueryLogRepository;
 import com.codecrafter8.nl2sql.service.llm.LLMException;
 import com.codecrafter8.nl2sql.service.llm.LLMProvider;
+import com.codecrafter8.nl2sql.service.llm.PromptLoader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -24,11 +24,13 @@ import java.util.Map;
 @Service
 public class QueryExecutionService {
 
-    private final QueryLogRepository queryLogRepository;
+    private static final String SELF_CORRECT_SQL_USER_PROMPT = "prompts/openai/self-correct-sql-user.txt";
+    private final QueryLogService queryLogService;
     private final SQLValidationService sqlValidationService;
     private final SQLExecutionService sqlExecutionService;
     private final ObjectProvider<LLMProvider> llmProvider;
     private final TableContextRetriever tableContextRetriever;
+    private final PromptLoader promptLoader;
 
     /**
      * Execute a natural language query and return results
@@ -36,111 +38,77 @@ public class QueryExecutionService {
     @Transactional
     public QueryResponse executeQuery(QueryRequest request) {
         log.info("Executing natural language query: {}", request.getNaturalLanguageQuery());
-
         long startTime = System.currentTimeMillis();
-        QueryLog queryLog = new QueryLog();
-        queryLog.setNaturalLanguageQuery(request.getNaturalLanguageQuery());
+
+        QueryLog queryLog = queryLogService.initializeLog(request.getNaturalLanguageQuery());
 
         try {
-            // Get LLM provider
-            LLMProvider provider = llmProvider.getIfAvailable();
-            if (provider == null) {
-                throw new LLMException("No LLM provider configured");
-            }
+            LLMProvider provider = getProviderOrThrow();
+            String schemaContext = tableContextRetriever.retrieveRelevantSchemaContext(request.getNaturalLanguageQuery());
 
-            // Get relevant schema context using RAG (Vector-based retrieval)
-            String schemaContext = tableContextRetriever.retrieveRelevantSchemaContext(
-                    request.getNaturalLanguageQuery()
-            );
+            String sql = provider.generateSQL(request.getNaturalLanguageQuery(), schemaContext);
+            log.info("Generated SQL: {}", sql);
+            queryLog.setGeneratedSql(sql);
 
-            // Generate SQL using LLM with focused schema context
-            String generatedSQL = provider.generateSQL(
-                    request.getNaturalLanguageQuery(),
-                    schemaContext
-            );
+            validateSqlOrThrow(sql);
 
-            log.info("Generated SQL: {}", generatedSQL);
-            queryLog.setGeneratedSql(generatedSQL);
+            List<Map<String, Object>> results = executeWithRetry(sql, request, schemaContext, provider, queryLog);
 
-            // Validate SQL
-            if (!sqlValidationService.validateSQL(generatedSQL)) {
-                queryLog.setStatus(QueryLog.QueryStatus.INVALID_SQL);
-                queryLog.setError("Generated SQL failed validation");
-                queryLog.setExecutionTimeMs(System.currentTimeMillis() - startTime);
-                queryLogRepository.save(queryLog);
+            String explanation = request.isExplainSql() ? provider.explainSQL(queryLog.getGeneratedSql()) : null;
 
-                return buildErrorResponse(queryLog);
-            }
-
-            // Check if query is read-only
-            if (!sqlExecutionService.isReadOnlyQuery(generatedSQL)) {
-                queryLog.setStatus(QueryLog.QueryStatus.INVALID_SQL);
-                queryLog.setError("Only SELECT queries are allowed");
-                queryLog.setExecutionTimeMs(System.currentTimeMillis() - startTime);
-                queryLogRepository.save(queryLog);
-
-                return buildErrorResponse(queryLog);
-            }
-
-            // Execute SQL query
-            List<Map<String, Object>> results = sqlExecutionService.executeQuery(generatedSQL);
-
-            // Get SQL explanation if requested
-            String explanation = null;
-            if (request.isExplainSql()) {
-                explanation = provider.explainSQL(generatedSQL);
-            }
-
-            queryLog.setStatus(QueryLog.QueryStatus.SUCCESS);
-            queryLog.setExecutionTimeMs(System.currentTimeMillis() - startTime);
-            queryLogRepository.save(queryLog);
+            queryLogService.logSuccess(queryLog, queryLog.getGeneratedSql(), startTime);
 
             return buildSuccessResponse(queryLog, results, explanation);
 
-        } catch (SQLExecutionService.SQLExecutionException e) {
-            log.error("SQL execution error: {}", e.getMessage());
-            queryLog.setStatus(QueryLog.QueryStatus.ERROR);
-            queryLog.setError("SQL execution failed: " + e.getMessage());
-            queryLog.setExecutionTimeMs(System.currentTimeMillis() - startTime);
-            queryLogRepository.save(queryLog);
-
-            return buildErrorResponse(queryLog);
-        } catch (LLMException e) {
-            log.error("LLM error: {}", e.getMessage());
-            queryLog.setStatus(QueryLog.QueryStatus.ERROR);
-            queryLog.setError(e.getMessage());
-            queryLog.setExecutionTimeMs(System.currentTimeMillis() - startTime);
-            queryLogRepository.save(queryLog);
-
-            return buildErrorResponse(queryLog);
         } catch (Exception e) {
-            log.error("Unexpected error during query execution", e);
-            queryLog.setStatus(QueryLog.QueryStatus.ERROR);
-            queryLog.setError(e.getMessage());
-            queryLog.setExecutionTimeMs(System.currentTimeMillis() - startTime);
-            queryLogRepository.save(queryLog);
-
+            queryLogService.logError(queryLog, e, queryLog.getGeneratedSql(), startTime);
             return buildErrorResponse(queryLog);
         }
     }
 
-    /**
-     * Get query history
-     */
-    public List<QueryLog> getQueryHistory(int limit) {
-        log.debug("Fetching query history (limit: {})", limit);
-        return queryLogRepository.findAll()
-                .stream()
-                .limit(limit)
-                .toList();
+    private List<Map<String, Object>> executeWithRetry(
+            String sql,
+            QueryRequest request,
+            String schema,
+            LLMProvider provider,
+            QueryLog queryLog) {
+
+        try {
+            return sqlExecutionService.executeQuery(sql);
+        } catch (SQLExecutionService.SQLExecutionException e) {
+            log.warn("First execution failed, attempting self-correction. Error: {}", e.getMessage());
+
+            String correctionPrompt = buildSelfCorrectionUserPrompt(request.getNaturalLanguageQuery(), sql, e.getMessage());
+            String correctedSql = provider.generateSQL(correctionPrompt, schema);
+
+            queryLog.setGeneratedSql(correctedSql);
+            validateSqlOrThrow(correctedSql);
+
+            return sqlExecutionService.executeQuery(correctedSql);
+        }
     }
 
-    /**
-     * Get a specific query log by ID
-     */
-    public QueryLog getQueryLog(Long id) {
-        log.debug("Fetching query log with id: {}", id);
-        return queryLogRepository.findById(id).orElse(null);
+    private void validateSqlOrThrow(String sql) {
+        if (!sqlValidationService.validateSQL(sql)) {
+            throw new IllegalArgumentException("Generated SQL failed safety validation");
+        }
+        if (!sqlExecutionService.isReadOnlyQuery(sql)) {
+            throw new IllegalArgumentException("Only SELECT queries are allowed");
+        }
+    }
+
+    private LLMProvider getProviderOrThrow() {
+        return llmProvider.getIfAvailable(() -> {
+            throw new LLMException("No LLM provider configured");
+        });
+    }
+
+    private String buildSelfCorrectionUserPrompt(String naturalLanguageQuery, String failedSql, String executionError) {
+        String template = promptLoader.loadPrompt(SELF_CORRECT_SQL_USER_PROMPT);
+        return template
+                .replace("{{naturalLanguageQuery}}", naturalLanguageQuery)
+                .replace("{{failedSql}}", failedSql)
+                .replace("{{executionError}}", executionError);
     }
 
     private QueryResponse buildSuccessResponse(QueryLog queryLog, List<Map<String, Object>> results, String explanation) {
