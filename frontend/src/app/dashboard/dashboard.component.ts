@@ -1,26 +1,33 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
-import { Highlight } from 'ngx-highlightjs';
 
 import { QueryHistoryEntry, QueryResponse, QueryStatus } from '../models';
 import { QueryService } from '../services/query.service';
+import { AnalysisPanelComponent } from './components/analysis-panel/analysis-panel.component';
+import { ExplainabilityPanelComponent } from './components/explainability-panel/explainability-panel.component';
+import { HistorySidebarComponent } from './components/history-sidebar/history-sidebar.component';
+import { ResultsPanelComponent } from './components/results-panel/results-panel.component';
+import { TechnicalInspectorComponent } from './components/technical-inspector/technical-inspector.component';
 
 type ResultRow = Record<string, unknown>;
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, Highlight],
+  imports: [
+    CommonModule,
+    AnalysisPanelComponent,
+    ExplainabilityPanelComponent,
+    HistorySidebarComponent,
+    ResultsPanelComponent,
+    TechnicalInspectorComponent
+  ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DashboardComponent {
   private readonly queryService = inject(QueryService);
-  private readonly historyDateFormatter = new Intl.DateTimeFormat('pl-PL', {
-    dateStyle: 'short',
-    timeStyle: 'short'
-  });
   private readonly previousErrorLog = signal<string>('');
   private readonly handledResponseFingerprint = signal<string>('');
 
@@ -45,6 +52,7 @@ export class DashboardComponent {
   });
   readonly transportError = computed<Error | undefined>(() => this.queryService.error() ?? undefined);
   readonly historyError = computed<Error | undefined>(() => this.queryService.historyError() ?? undefined);
+  readonly historyErrorMessage = computed<string | null>(() => this.historyError()?.message?.trim() ?? null);
 
   readonly status = computed<QueryStatus>(() => this.normalizeStatus(this.response()?.status));
   readonly isSuccess = computed<boolean>(() => this.status() === QueryStatus.SUCCESS);
@@ -52,7 +60,6 @@ export class DashboardComponent {
     const status = this.status();
     return status === QueryStatus.ERROR || status === QueryStatus.INVALID_SQL || status === QueryStatus.FAILED;
   });
-  readonly hasHistory = computed<boolean>(() => this.queryHistory().length > 0);
 
   readonly statusLabel = computed<string>(() => {
     switch (this.status()) {
@@ -146,8 +153,6 @@ export class DashboardComponent {
     return Array.from(columns);
   });
 
-  readonly hasResults = computed<boolean>(() => this.resultRows().length > 0 && this.resultColumns().length > 0);
-
   readonly rowCount = computed<number>(() => {
     const declaredCount = this.response()?.rowCount;
     return typeof declaredCount === 'number' ? declaredCount : this.resultRows().length;
@@ -205,9 +210,8 @@ export class DashboardComponent {
     });
   }
 
-  updateDraft(event: Event): void {
-    const target = event.target as HTMLTextAreaElement | null;
-    this.queryDraft.set(target?.value ?? '');
+  setQueryDraft(query: string): void {
+    this.queryDraft.set(query);
   }
 
   executeAnalysis(): void {
@@ -224,79 +228,7 @@ export class DashboardComponent {
   }
 
   reuseHistoryQuery(query: string): void {
-    this.queryDraft.set(query);
-  }
-
-  formatHistoryDate(createdAt?: string | null): string {
-    if (!createdAt) {
-      return 'n/a';
-    }
-
-    const timestamp = Date.parse(createdAt);
-    if (Number.isNaN(timestamp)) {
-      return createdAt;
-    }
-
-    return this.historyDateFormatter.format(new Date(timestamp));
-  }
-
-  formatHistoryExecutionTime(executionTimeMs?: number | null): string {
-    return typeof executionTimeMs === 'number' ? `${executionTimeMs} ms` : 'n/a';
-  }
-
-  formatHistoryResults(results?: string | null): string {
-    const normalizedResults = results?.trim();
-
-    if (!normalizedResults) {
-      return 'Brak wynikow w logu.';
-    }
-
-    const condensedResults = normalizedResults.replace(/\s+/g, ' ');
-    return condensedResults.length > 240 ? `${condensedResults.slice(0, 240)}...` : condensedResults;
-  }
-
-  formatHistoryStatus(status?: string | null): string {
-    const normalizedStatus = this.normalizeStatus(status);
-    return normalizedStatus === QueryStatus.PENDING ? 'UNKNOWN' : normalizedStatus;
-  }
-
-  historyStatusClass(status?: string | null): string {
-    const normalizedStatus = this.normalizeStatus(status);
-
-    if (normalizedStatus === QueryStatus.SUCCESS) {
-      return 'border-emerald-300 bg-emerald-100 text-emerald-800';
-    }
-
-    if (
-      normalizedStatus === QueryStatus.ERROR ||
-      normalizedStatus === QueryStatus.INVALID_SQL ||
-      normalizedStatus === QueryStatus.FAILED
-    ) {
-      return 'border-rose-300 bg-rose-100 text-rose-800';
-    }
-
-    return 'border-slate-300 bg-slate-200/70 text-slate-700';
-  }
-
-  formatColumnName(column: string): string {
-    return column
-      .replace(/_/g, ' ')
-      .replace(/([a-z])([A-Z])/g, '$1 $2')
-      .replace(/^./, (char) => char.toUpperCase());
-  }
-
-  formatCellValue(row: ResultRow, column: string): string {
-    const value = row[column];
-
-    if (value === null || value === undefined) {
-      return 'NULL';
-    }
-
-    if (typeof value === 'object') {
-      return JSON.stringify(value);
-    }
-
-    return String(value);
+    this.setQueryDraft(query);
   }
 
   private normalizeStatus(status?: string | null): QueryStatus {

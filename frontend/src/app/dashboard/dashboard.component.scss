@@ -62,34 +62,6 @@
   backdrop-filter: blur(8px);
 }
 
-.table-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
-}
-
-.table-scroll::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.table-scroll::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 10px;
-}
-
-.sql-viewer code {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.85rem;
-}
-
-.sql-viewer pre {
-  margin: 0;
-  border-radius: 0.75rem;
-  background: #f1f5f9;
-  padding: 1rem;
-  border: 1px solid #e2e8f0;
-}
-
 .dashboard-shell::before {
   content: '';
   position: absolute;
@@ -101,26 +73,4 @@
     linear-gradient(90deg, #cbd5e1 1px, transparent 1px);
   background-size: auto, 40px 40px, 40px 40px;
   opacity: 0.4;
-}
-
-.history-scroll {
-  height: calc(100vh - 8rem);
-}
-
-.history-entry {
-  background: white;
-  border: 1px solid #e2e8f0;
-  transition: transform 0.2s;
-}
-
-.history-entry:hover {
-  transform: translateY(-2px);
-  border-color: #cbd5e1;
-}
-
-.history-preview {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }

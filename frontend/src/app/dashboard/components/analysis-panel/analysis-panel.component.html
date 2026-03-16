@@ -1,0 +1,33 @@
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+  <h2 class="text-lg font-semibold text-slate-900">Analiza jezyka naturalnego</h2>
+  <span class="rounded-full border border-slate-300 bg-slate-200/70 px-3 py-1 text-xs font-semibold text-slate-700">
+    Prompt to SQL
+  </span>
+</div>
+<label for="query-input" class="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
+  Opisz pytanie analityczne
+</label>
+<textarea
+  id="query-input"
+  rows="4"
+  class="w-full resize-y rounded-xl border border-slate-300 bg-slate-100/85 px-4 py-3 text-sm text-slate-900 shadow-inner shadow-slate-300/55 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200/60"
+  placeholder="np. Pokaz top 5 oddzialow o najwiekszej liczbie hospitalizacji w tym kwartale"
+  [value]="queryDraft()"
+  (input)="updateDraft($event)"
+></textarea>
+<div class="mt-4 flex flex-wrap items-center gap-3">
+  <button
+    type="button"
+    class="inline-flex items-center gap-2 rounded-xl border border-sky-400/70 bg-sky-300/55 px-5 py-2.5 text-sm font-semibold text-sky-950 transition hover:bg-sky-300/75 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-500"
+    [disabled]="!canExecute()"
+    (click)="executeAnalysis()"
+  >
+    @if (loading()) {
+      <span class="h-4 w-4 animate-spin rounded-full border-2 border-sky-700 border-r-transparent"></span>
+    }
+    Wykonaj analize
+  </button>
+  <p class="text-xs text-slate-600">
+    {{ loading() ? 'Silnik przetwarza zapytanie i buduje SQL...' : 'Kliknij przycisk, aby uruchomic pipeline NL2SQL.' }}
+  </p>
+</div>
