@@ -6,6 +6,115 @@
   position: relative;
 }
 
+.dashboard-layout {
+  position: relative;
+}
+
+.dashboard-header-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.8rem;
+}
+
+.dashboard-hero {
+  flex: 1;
+}
+
+.history-hamburger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.45rem;
+  height: 2.45rem;
+  flex: 0 0 auto;
+  margin-top: 0.35rem;
+  border: 1px solid rgba(71, 85, 105, 0.45);
+  border-radius: 0.85rem;
+  background: rgba(226, 232, 240, 0.95);
+  color: rgb(51, 65, 85);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.68),
+    0 16px 32px -24px rgba(15, 23, 42, 0.75);
+  transition: background-color 140ms ease, transform 140ms ease;
+}
+
+@media (max-width: 639px) {
+  .dashboard-header-row {
+    gap: 0.55rem;
+  }
+
+  .history-hamburger {
+    width: 2.3rem;
+    height: 2.3rem;
+    margin-top: 0.45rem;
+  }
+}
+
+.history-hamburger:hover {
+  background: rgba(203, 213, 225, 0.98);
+}
+
+.history-hamburger:active {
+  transform: scale(0.98);
+}
+
+.history-hamburger:focus-visible {
+  outline: 2px solid rgba(14, 165, 233, 0.65);
+  outline-offset: 2px;
+}
+
+@media (min-width: 1280px) {
+  .dashboard-layout {
+    display: grid;
+    grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
+    align-items: start;
+    transition: grid-template-columns 180ms ease;
+  }
+
+  .dashboard-layout.sidebar-closed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.chat-sidebar {
+  position: relative;
+  border: 1px solid rgba(71, 85, 105, 0.42);
+  border-radius: 1.15rem;
+  background:
+    linear-gradient(180deg, rgba(226, 232, 240, 0.95), rgba(203, 213, 225, 0.9));
+  padding: 1rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 20px 46px -36px rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(10px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.chat-sidebar.chat-sidebar-hidden {
+  display: none;
+}
+
+.chat-sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.2), rgba(148, 163, 184, 0.1));
+}
+
+@media (min-width: 1280px) {
+  .chat-sidebar::after {
+    content: '';
+    position: absolute;
+    top: 1rem;
+    bottom: 1rem;
+    right: -0.8rem;
+    width: 1px;
+    background: linear-gradient(180deg, rgba(148, 163, 184, 0), rgba(100, 116, 139, 0.55), rgba(148, 163, 184, 0));
+  }
+}
+
 .dashboard-shell::before {
   content: '';
   position: absolute;
@@ -83,4 +192,28 @@
 
 .sql-viewer .hljs {
   background: transparent;
+}
+
+.history-scroll {
+  max-height: 32rem;
+}
+
+@media (min-width: 1280px) {
+  .history-scroll {
+    max-height: calc(100vh - 10.75rem);
+  }
+}
+
+.history-entry {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 10px 24px -22px rgba(15, 23, 42, 0.45);
+}
+
+.history-preview {
+  overflow: hidden;
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }

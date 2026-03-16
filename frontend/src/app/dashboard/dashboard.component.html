@@ -1,171 +1,271 @@
 <div class="dashboard-shell min-h-screen px-4 py-6 text-sm sm:px-8 sm:py-8 sm:text-[15px] lg:px-12 lg:py-10">
-  <div class="mx-auto max-w-[1500px] space-y-6">
-    <header class="rounded-2xl border border-slate-400/55 bg-gradient-to-br from-stone-100/92 via-slate-100/86 to-sky-100/78 p-6 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.4)] backdrop-blur-md">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-700">NL2SQL Expert Console</p>
-          <h1 class="mt-2 text-2xl font-semibold text-slate-900 sm:text-3xl">Dashboard</h1>
-        </div>
-        <span class="rounded-full border border-slate-400 bg-slate-200/80 px-4 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
-          Live Analysis
-        </span>
+  <div class="dashboard-layout mx-auto max-w-[1700px] gap-6" [class.sidebar-closed]="!historySidebarOpen()">
+    <aside
+      class="chat-sidebar min-w-0 xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)] xl:self-start"
+      [class.chat-sidebar-hidden]="!historySidebarOpen()"
+    >
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-lg font-semibold text-slate-900">Historia</h2>
+        <button
+          type="button"
+          class="inline-flex items-center rounded-xl border border-slate-300 bg-slate-100/90 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-65"
+          [disabled]="historyLoading()"
+          (click)="refreshHistory()"
+        >
+          Odswiez
+        </button>
       </div>
-      <p class="mt-4 max-w-3xl text-sm text-slate-700">
-        Konsola wspiera analize zapytan w jezyku naturalnym, inspekcje SQL oraz transparentne wyjasnianie dzialania modelu.
-      </p>
-    </header>
 
-    <div class="grid gap-6 xl:grid-cols-[minmax(0,2.2fr)_minmax(320px,1fr)]">
-      <section class="panel xl:col-span-2">
-        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 class="text-lg font-semibold text-slate-900">Analiza jezyka naturalnego</h2>
-          <span class="rounded-full border border-slate-300 bg-slate-200/70 px-3 py-1 text-xs font-semibold text-slate-700">
-            Prompt to SQL
-          </span>
+      @if (historyLoading()) {
+        <div class="space-y-3">
+          @for (placeholder of [1, 2, 3, 4]; track placeholder) {
+            <div class="h-20 animate-pulse rounded-lg bg-slate-200/85"></div>
+          }
         </div>
+      } @else if (historyError()) {
+        <div class="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800">
+          Nie udalo sie pobrac historii zapytan: {{ historyError()?.message }}
+        </div>
+      } @else if (hasHistory()) {
+        <div class="history-scroll table-scroll space-y-3 overflow-auto pr-1">
+          @for (entry of queryHistory(); track entry.id) {
+            <article class="history-entry rounded-xl border border-slate-300 bg-slate-100/90 p-3">
+              <div class="flex flex-wrap items-start justify-between gap-2">
+                <p class="text-sm font-semibold text-slate-900">{{ entry.naturalLanguageQuery }}</p>
+                <span class="rounded-full border px-3 py-1 text-[11px] font-semibold" [ngClass]="historyStatusClass(entry.status)">
+                  {{ formatHistoryStatus(entry.status) }}
+                </span>
+              </div>
 
-        <label for="query-input" class="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
-          Opisz pytanie analityczne
-        </label>
+              <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+                <span class="rounded-full border border-slate-300 bg-slate-50/85 px-2 py-1">ID: {{ entry.id }}</span>
+                <span class="rounded-full border border-slate-300 bg-slate-50/85 px-2 py-1">Czas: {{ formatHistoryExecutionTime(entry.executionTimeMs) }}</span>
+                <span class="rounded-full border border-slate-300 bg-slate-50/85 px-2 py-1">Dodano: {{ formatHistoryDate(entry.createdAt) }}</span>
+              </div>
 
-        <textarea
-          id="query-input"
-          rows="4"
-          class="w-full resize-y rounded-xl border border-slate-300 bg-slate-100/85 px-4 py-3 text-sm text-slate-900 shadow-inner shadow-slate-300/55 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200/60"
-          placeholder="np. Pokaz top 5 oddzialow o najwiekszej liczbie hospitalizacji w tym kwartale"
-          [value]="queryDraft()"
-          (input)="updateDraft($event)"
-        ></textarea>
+              @if (entry.generatedSql) {
+                <p class="history-preview mt-2 font-mono text-xs text-slate-700">SQL: {{ entry.generatedSql }}</p>
+              } @else if (entry.error) {
+                <p class="history-preview mt-2 font-mono text-xs text-rose-700">Error: {{ entry.error }}</p>
+              }
 
-        <div class="mt-4 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            class="inline-flex items-center gap-2 rounded-xl border border-sky-400/70 bg-sky-300/55 px-5 py-2.5 text-sm font-semibold text-sky-950 transition hover:bg-sky-300/75 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-500"
-            [disabled]="!canExecute()"
-            (click)="executeAnalysis()"
+              <div class="mt-2 rounded-lg border border-slate-300/80 bg-slate-50/90 px-2.5 py-2">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">Results</p>
+                <p class="history-preview mt-1 font-mono text-xs text-slate-700">{{ formatHistoryResults(entry.results) }}</p>
+              </div>
+
+              <div class="mt-3">
+                <button
+                  type="button"
+                  class="inline-flex items-center rounded-lg border border-sky-300 bg-sky-100/85 px-3 py-1 text-xs font-semibold text-sky-800 transition hover:bg-sky-100"
+                  (click)="reuseHistoryQuery(entry.naturalLanguageQuery)"
+                >
+                  Uzyj ponownie
+                </button>
+              </div>
+            </article>
+          }
+        </div>
+      } @else {
+        <div class="rounded-xl border border-dashed border-slate-300 bg-slate-100/75 p-6 text-center text-sm text-slate-600">
+          Historia jest pusta. Wykonaj pierwsze zapytanie, aby zobaczyc log.
+        </div>
+      }
+    </aside>
+
+    <div class="space-y-6">
+      <div class="dashboard-header-row">
+        <button
+          type="button"
+          class="history-hamburger"
+          (click)="toggleHistorySidebar()"
+          [attr.aria-expanded]="historySidebarOpen()"
+          aria-label="Przelacz panel historii"
+          title="Historia zapytan"
+        >
+          <svg 
+            viewBox="0 0 24 24" 
+            class="h-4 w-4" 
+            fill="none" 
+            stroke="currentColor" 
+            stroke-width="2" 
+            stroke-linecap="round" 
+            stroke-linejoin="round"
           >
-            @if (loading()) {
-              <span class="h-4 w-4 animate-spin rounded-full border-2 border-sky-700 border-r-transparent"></span>
-            }
-            Wykonaj analize
-          </button>
-          <p class="text-xs text-slate-600">
-            @if (loading()) {
-              Silnik przetwarza zapytanie i buduje SQL...
-            } @else {
-              Kliknij przycisk, aby uruchomic pipeline NL2SQL.
-            }
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+            <path d="M12 7v5l4 2"></path>
+          </svg>
+        </button>
+
+        <header class="dashboard-hero rounded-2xl border border-slate-400/55 bg-gradient-to-br from-stone-100/92 via-slate-100/86 to-sky-100/78 p-6 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.4)] backdrop-blur-md">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-700">NL2SQL Expert Console</p>
+              <h1 class="mt-2 text-2xl font-semibold text-slate-900 sm:text-3xl">Dashboard</h1>
+            </div>
+            <span class="rounded-full border border-slate-400 bg-slate-200/80 px-4 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
+              Live Analysis
+            </span>
+          </div>
+          <p class="mt-4 max-w-3xl text-sm text-slate-700">
+            Konsola wspiera analize zapytan w jezyku naturalnym, inspekcje SQL oraz transparentne wyjasnianie dzialania modelu.
           </p>
-        </div>
-      </section>
+        </header>
+      </div>
 
-      <section class="panel min-w-0">
-        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h2 class="text-lg font-semibold text-slate-900">Wyniki zapytania</h2>
-          <div class="flex flex-wrap items-center gap-2 text-xs">
-            <span class="rounded-full border border-slate-300 bg-slate-200/75 px-3 py-1 text-slate-700">Wiersze: {{ rowCount() }}</span>
-            <span class="rounded-full border border-slate-300 bg-slate-200/75 px-3 py-1 text-slate-700">Kolumny: {{ resultColumns().length }}</span>
+      <div class="grid gap-6 xl:grid-cols-[minmax(0,2.2fr)_minmax(320px,1fr)]">
+        <section class="panel xl:col-span-2">
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-lg font-semibold text-slate-900">Analiza jezyka naturalnego</h2>
+            <span class="rounded-full border border-slate-300 bg-slate-200/70 px-3 py-1 text-xs font-semibold text-slate-700">
+              Prompt to SQL
+            </span>
           </div>
-        </div>
 
-        @if (loading()) {
-          <div class="space-y-3">
-            @for (placeholder of [1, 2, 3, 4, 5]; track placeholder) {
-              <div class="h-9 animate-pulse rounded-lg bg-slate-200/80"></div>
-            }
+          <label for="query-input" class="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
+            Opisz pytanie analityczne
+          </label>
+
+          <textarea
+            id="query-input"
+            rows="4"
+            class="w-full resize-y rounded-xl border border-slate-300 bg-slate-100/85 px-4 py-3 text-sm text-slate-900 shadow-inner shadow-slate-300/55 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200/60"
+            placeholder="np. Pokaz top 5 oddzialow o najwiekszej liczbie hospitalizacji w tym kwartale"
+            [value]="queryDraft()"
+            (input)="updateDraft($event)"
+          ></textarea>
+
+          <div class="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 rounded-xl border border-sky-400/70 bg-sky-300/55 px-5 py-2.5 text-sm font-semibold text-sky-950 transition hover:bg-sky-300/75 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-500"
+              [disabled]="!canExecute()"
+              (click)="executeAnalysis()"
+            >
+              @if (loading()) {
+                <span class="h-4 w-4 animate-spin rounded-full border-2 border-sky-700 border-r-transparent"></span>
+              }
+              Wykonaj analize
+            </button>
+            <p class="text-xs text-slate-600">
+              @if (loading()) {
+                Silnik przetwarza zapytanie i buduje SQL...
+              } @else {
+                Kliknij przycisk, aby uruchomic pipeline NL2SQL.
+              }
+            </p>
           </div>
-        } @else if (hasResults()) {
-          <div class="table-scroll overflow-auto rounded-xl border border-slate-300/80 bg-slate-100/78">
-            <table class="result-table min-w-full border-separate border-spacing-0 text-left text-sm">
-              <thead class="sticky top-0 z-10">
-                <tr>
-                  @for (column of resultColumns(); track column) {
-                    <th class="bg-slate-200/80 px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-slate-700">
-                      {{ formatColumnName(column) }}
-                    </th>
-                  }
-                </tr>
-              </thead>
-              <tbody>
-                @for (row of resultRows(); track $index) {
-                  <tr class="transition hover:bg-sky-100/45">
+        </section>
+
+        <section class="panel min-w-0">
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-lg font-semibold text-slate-900">Wyniki zapytania</h2>
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <span class="rounded-full border border-slate-300 bg-slate-200/75 px-3 py-1 text-slate-700">Wiersze: {{ rowCount() }}</span>
+              <span class="rounded-full border border-slate-300 bg-slate-200/75 px-3 py-1 text-slate-700">Kolumny: {{ resultColumns().length }}</span>
+            </div>
+          </div>
+
+          @if (loading()) {
+            <div class="space-y-3">
+              @for (placeholder of [1, 2, 3, 4, 5]; track placeholder) {
+                <div class="h-9 animate-pulse rounded-lg bg-slate-200/80"></div>
+              }
+            </div>
+          } @else if (hasResults()) {
+            <div class="table-scroll overflow-auto rounded-xl border border-slate-300/80 bg-slate-100/78">
+              <table class="result-table min-w-full border-separate border-spacing-0 text-left text-sm">
+                <thead class="sticky top-0 z-10">
+                  <tr>
                     @for (column of resultColumns(); track column) {
-                      <td class="border-t border-slate-200 px-4 py-3 align-top text-slate-800">
-                        {{ formatCellValue(row, column) }}
-                      </td>
+                      <th class="bg-slate-200/80 px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-slate-700">
+                        {{ formatColumnName(column) }}
+                      </th>
                     }
                   </tr>
+                </thead>
+                <tbody>
+                  @for (row of resultRows(); track $index) {
+                    <tr class="transition hover:bg-sky-100/45">
+                      @for (column of resultColumns(); track column) {
+                        <td class="border-t border-slate-200 px-4 py-3 align-top text-slate-800">
+                          {{ formatCellValue(row, column) }}
+                        </td>
+                      }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <div class="rounded-xl border border-dashed border-slate-300 bg-slate-100/70 p-8 text-center text-sm text-slate-600">
+              Brak danych wynikowych. Uruchom analize, aby wyswietlic dynamiczna tabele.
+            </div>
+          }
+        </section>
+
+        <aside class="panel">
+          <h2 class="text-lg font-semibold text-slate-900">Technical Inspector</h2>
+
+          <div class="mt-4 rounded-xl border border-slate-300 bg-slate-100/75 p-4">
+            <div class="flex items-center justify-between gap-3">
+              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">Status</p>
+              <span class="rounded-full border px-3 py-1 text-xs font-semibold" [ngClass]="statusBadgeClass()">
+                {{ statusLabel() }}
+              </span>
+            </div>
+
+            <div class="mt-3 flex items-center gap-3">
+              <span class="inline-flex h-8 w-8 items-center justify-center rounded-full border" [ngClass]="statusIconClass()">
+                @if (isSuccess()) {
+                  <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path>
+                  </svg>
+                } @else if (isError()) {
+                  <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round" stroke-linejoin="round"></path>
+                  </svg>
+                } @else {
+                  <svg viewBox="0 0 24 24" class="h-4 w-4 animate-spin" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" stroke-linejoin="round"></path>
+                  </svg>
                 }
-              </tbody>
-            </table>
-          </div>
-        } @else {
-          <div class="rounded-xl border border-dashed border-slate-300 bg-slate-100/70 p-8 text-center text-sm text-slate-600">
-            Brak danych wynikowych. Uruchom analize, aby wyswietlic dynamiczna tabele.
-          </div>
-        }
-      </section>
-
-      <aside class="panel">
-        <h2 class="text-lg font-semibold text-slate-900">Technical Inspector</h2>
-
-        <div class="mt-4 rounded-xl border border-slate-300 bg-slate-100/75 p-4">
-          <div class="flex items-center justify-between gap-3">
-            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">Status</p>
-            <span class="rounded-full border px-3 py-1 text-xs font-semibold" [ngClass]="statusBadgeClass()">
-              {{ statusLabel() }}
-            </span>
-          </div>
-
-          <div class="mt-3 flex items-center gap-3">
-            <span class="inline-flex h-8 w-8 items-center justify-center rounded-full border" [ngClass]="statusIconClass()">
-              @if (isSuccess()) {
-                <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
-              } @else if (isError()) {
-                <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
-              } @else {
-                <svg viewBox="0 0 24 24" class="h-4 w-4 animate-spin" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
-              }
-            </span>
-            <p class="text-sm text-slate-700">{{ statusNote() }}</p>
-          </div>
-
-          <div class="mt-4">
-            <span class="inline-flex items-center rounded-full border border-slate-300 bg-slate-50/85 px-3 py-1 text-xs font-semibold text-slate-700">
-              Czas wykonania: {{ executionTimeLabel() }}
-            </span>
-          </div>
-
-          @if (showAutoCorrectionNotice()) {
-            <div class="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-              🛡️ Zapytanie poprawione automatycznie
+              </span>
+              <p class="text-sm text-slate-700">{{ statusNote() }}</p>
             </div>
-          }
 
-          @if (activeErrorLog()) {
-            <div class="mt-4 rounded-xl border border-rose-300 bg-rose-50 p-3">
-              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-rose-700">Error Log</p>
-              <p class="mt-2 break-words font-mono text-xs text-rose-800">{{ activeErrorLog() }}</p>
+            <div class="mt-4">
+              <span class="inline-flex items-center rounded-full border border-slate-300 bg-slate-50/85 px-3 py-1 text-xs font-semibold text-slate-700">
+                Czas wykonania: {{ executionTimeLabel() }}
+              </span>
             </div>
-          }
-        </div>
 
-        <div class="sql-viewer mt-4 rounded-xl border border-slate-300 bg-slate-100/82 p-4">
-          <p class="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">Wygenerowany SQL</p>
-          <pre class="table-scroll"><code [highlight]="generatedSql()" [language]="'sql'"></code></pre>
-        </div>
-      </aside>
+            @if (showAutoCorrectionNotice()) {
+              <div class="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                🛡️ Zapytanie poprawione automatycznie
+              </div>
+            }
 
-      <section class="panel xl:col-span-2">
-        <h2 class="text-lg font-semibold text-slate-900">Explainability</h2>
-        <p class="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-700">{{ explainability() }}</p>
-      </section>
+            @if (activeErrorLog()) {
+              <div class="mt-4 rounded-xl border border-rose-300 bg-rose-50 p-3">
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-rose-700">Error Log</p>
+                <p class="mt-2 break-words font-mono text-xs text-rose-800">{{ activeErrorLog() }}</p>
+              </div>
+            }
+          </div>
+
+          <div class="sql-viewer mt-4 rounded-xl border border-slate-300 bg-slate-100/82 p-4">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">Wygenerowany SQL</p>
+            <pre class="table-scroll"><code [highlight]="generatedSql()" [language]="'sql'"></code></pre>
+          </div>
+        </aside>
+
+        <section class="panel xl:col-span-2">
+          <h2 class="text-lg font-semibold text-slate-900">Explainability</h2>
+          <p class="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-700">{{ explainability() }}</p>
+        </section>
+      </div>
     </div>
   </div>
 </div>
