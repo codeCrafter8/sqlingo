@@ -24,7 +24,7 @@ export class DashboardComponent {
   private readonly previousErrorLog = signal<string>('');
   private readonly handledResponseFingerprint = signal<string>('');
 
-  readonly historySidebarOpen = signal<boolean>(true);
+  readonly historySidebarOpen = signal<boolean>(false);
   readonly queryDraft = signal<string>('');
   readonly loading = this.queryService.loading;
   readonly historyLoading = this.queryService.historyLoading;
