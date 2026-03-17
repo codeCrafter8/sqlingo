@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
 @Component({
   selector: 'app-dashboard-explainability-panel',
@@ -8,5 +8,12 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ExplainabilityPanelComponent {
-  readonly explainability = input<string>('Uruchom analize, aby zobaczyc tekstowe uzasadnienie wygenerowanego SQL.');
+  readonly sqlExplanation = input<string | null | undefined>(null);
+
+  readonly explainability = computed<string>(() => {
+    const explanation = this.sqlExplanation()?.trim();
+    return explanation && explanation.length > 0
+      ? explanation
+      : 'Uruchom analize, aby zobaczyc tekstowe uzasadnienie wygenerowanego SQL.';
+  });
 }

@@ -11,11 +11,36 @@ type ResultRow = Record<string, unknown>;
 })
 export class ResultsPanelComponent {
   readonly loading = input<boolean>(false);
-  readonly rowCount = input<number>(0);
-  readonly columns = input<string[]>([]);
-  readonly rows = input<ResultRow[]>([]);
+  readonly declaredRowCount = input<number | null | undefined>(undefined);
+  readonly results = input<unknown[] | null | undefined>([]);
 
-  readonly hasResults = computed<boolean>(() => this.rows().length > 0 && this.columns().length > 0);
+  readonly resultRows = computed<ResultRow[]>(() => {
+    const rows = this.results();
+    if (!Array.isArray(rows)) {
+      return [];
+    }
+
+    return rows.filter((row): row is ResultRow => typeof row === 'object' && row !== null);
+  });
+
+  readonly columns = computed<string[]>(() => {
+    const columnSet = new Set<string>();
+
+    for (const row of this.resultRows()) {
+      for (const key of Object.keys(row)) {
+        columnSet.add(key);
+      }
+    }
+
+    return Array.from(columnSet);
+  });
+
+  readonly rowCount = computed<number>(() => {
+    const declaredCount = this.declaredRowCount();
+    return typeof declaredCount === 'number' ? declaredCount : this.resultRows().length;
+  });
+
+  readonly hasResults = computed<boolean>(() => this.resultRows().length > 0 && this.columns().length > 0);
 
   formatColumnName(column: string): string {
     return column

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 
 @Component({
   selector: 'app-dashboard-analysis-panel',
@@ -10,7 +10,7 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 export class AnalysisPanelComponent {
   readonly queryDraft = input<string>('');
   readonly loading = input<boolean>(false);
-  readonly canExecute = input<boolean>(false);
+  readonly canExecute = computed<boolean>(() => this.queryDraft().trim().length > 0 && !this.loading());
 
   readonly queryDraftChanged = output<string>();
   readonly executionRequested = output<void>();

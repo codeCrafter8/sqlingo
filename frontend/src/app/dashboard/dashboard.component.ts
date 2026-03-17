@@ -9,8 +9,6 @@ import { HistorySidebarComponent } from './components/history-sidebar/history-si
 import { ResultsPanelComponent } from './components/results-panel/results-panel.component';
 import { TechnicalInspectorComponent } from './components/technical-inspector/technical-inspector.component';
 
-type ResultRow = Record<string, unknown>;
-
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -53,119 +51,7 @@ export class DashboardComponent {
   readonly transportError = computed<Error | undefined>(() => this.queryService.error() ?? undefined);
   readonly historyError = computed<Error | undefined>(() => this.queryService.historyError() ?? undefined);
   readonly historyErrorMessage = computed<string | null>(() => this.historyError()?.message?.trim() ?? null);
-
-  readonly status = computed<QueryStatus>(() => this.normalizeStatus(this.response()?.status));
-  readonly isSuccess = computed<boolean>(() => this.status() === QueryStatus.SUCCESS);
-  readonly isError = computed<boolean>(() => {
-    const status = this.status();
-    return status === QueryStatus.ERROR || status === QueryStatus.INVALID_SQL || status === QueryStatus.FAILED;
-  });
-
-  readonly statusLabel = computed<string>(() => {
-    switch (this.status()) {
-      case QueryStatus.SUCCESS:
-        return 'SUCCESS';
-      case QueryStatus.FAILED:
-        return 'FAILED';
-      case QueryStatus.ERROR:
-        return 'ERROR';
-      case QueryStatus.INVALID_SQL:
-        return 'INVALID_SQL';
-      default:
-        return 'PENDING';
-    }
-  });
-
-  readonly statusNote = computed<string>(() => {
-    switch (this.status()) {
-      case QueryStatus.SUCCESS:
-        return 'Zapytanie wykonane poprawnie.';
-      case QueryStatus.FAILED:
-        return 'Zapytanie zakonczone niepowodzeniem.';
-      case QueryStatus.INVALID_SQL:
-        return 'Wykryto niepoprawne lub niebezpieczne SQL.';
-      case QueryStatus.ERROR:
-        return 'Wykonanie nie powiodlo sie.';
-      default:
-        return this.loading() ? 'Analiza w toku...' : 'Oczekiwanie na uruchomienie.';
-    }
-  });
-
-  readonly statusBadgeClass = computed<string>(() => {
-    if (this.isSuccess()) {
-      return 'border-emerald-300 bg-emerald-100 text-emerald-800';
-    }
-
-    if (this.isError()) {
-      return 'border-rose-300 bg-rose-100 text-rose-800';
-    }
-
-    return 'border-sky-300 bg-sky-100 text-sky-800';
-  });
-
-  readonly statusIconClass = computed<string>(() => {
-    if (this.isSuccess()) {
-      return 'border-emerald-300 bg-emerald-100 text-emerald-800';
-    }
-
-    if (this.isError()) {
-      return 'border-rose-300 bg-rose-100 text-rose-800';
-    }
-
-    return 'border-sky-300 bg-sky-100 text-sky-800';
-  });
-
-  readonly executionTimeLabel = computed<string>(() => {
-    const executionTime = this.response()?.executionTimeMs;
-    return typeof executionTime === 'number' ? `${executionTime} ms` : 'n/a';
-  });
-
-  readonly generatedSql = computed<string>(() => {
-    const sql = this.response()?.generatedSql?.trim();
-    return sql && sql.length > 0 ? sql : '-- SQL pojawi sie po wykonaniu analizy --';
-  });
-
-  readonly explainability = computed<string>(() => {
-    const explanation = this.response()?.sqlExplanation?.trim();
-    return explanation && explanation.length > 0
-      ? explanation
-      : 'Uruchom analize, aby zobaczyc tekstowe uzasadnienie wygenerowanego SQL.';
-  });
-
-  readonly resultRows = computed<ResultRow[]>(() => {
-    const rows = this.response()?.results;
-    if (!Array.isArray(rows)) {
-      return [];
-    }
-
-    return rows.filter((row): row is ResultRow => typeof row === 'object' && row !== null);
-  });
-
-  readonly resultColumns = computed<string[]>(() => {
-    const columns = new Set<string>();
-
-    for (const row of this.resultRows()) {
-      for (const key of Object.keys(row)) {
-        columns.add(key);
-      }
-    }
-
-    return Array.from(columns);
-  });
-
-  readonly rowCount = computed<number>(() => {
-    const declaredCount = this.response()?.rowCount;
-    return typeof declaredCount === 'number' ? declaredCount : this.resultRows().length;
-  });
-
-  readonly canExecute = computed<boolean>(() => this.queryDraft().trim().length > 0 && !this.loading());
   readonly showAutoCorrectionNotice = signal<boolean>(false);
-
-  readonly activeErrorLog = computed<string>(() => {
-    const backendError = this.response()?.error?.trim();
-    const transportError = this.transportError()?.message?.trim();
-    return backendError || transportError || '';
-  });
 
   constructor() {
     effect(() => {

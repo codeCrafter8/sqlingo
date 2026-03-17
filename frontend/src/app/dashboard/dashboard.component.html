@@ -56,7 +56,6 @@
             <app-dashboard-analysis-panel
               [queryDraft]="queryDraft()"
               [loading]="loading()"
-              [canExecute]="canExecute()"
               (queryDraftChanged)="setQueryDraft($event)"
               (executionRequested)="executeAnalysis()"
             ></app-dashboard-analysis-panel>
@@ -65,29 +64,25 @@
           <section class="panel min-w-0">
             <app-dashboard-results-panel
               [loading]="loading()"
-              [rowCount]="rowCount()"
-              [columns]="resultColumns()"
-              [rows]="resultRows()"
+              [declaredRowCount]="response()?.rowCount"
+              [results]="response()?.results"
             ></app-dashboard-results-panel>
           </section>
 
           <aside class="panel">
             <app-dashboard-technical-inspector
-              [statusBadgeClass]="statusBadgeClass()"
-              [statusLabel]="statusLabel()"
-              [statusIconClass]="statusIconClass()"
-              [statusNote]="statusNote()"
-              [isSuccess]="isSuccess()"
-              [isError]="isError()"
-              [executionTimeLabel]="executionTimeLabel()"
+              [status]="response()?.status"
+              [loading]="loading()"
+              [executionTimeMs]="response()?.executionTimeMs"
               [showAutoCorrectionNotice]="showAutoCorrectionNotice()"
-              [activeErrorLog]="activeErrorLog()"
-              [generatedSql]="generatedSql()"
+              [responseError]="response()?.error"
+              [transportErrorMessage]="transportError()?.message"
+              [generatedSqlRaw]="response()?.generatedSql"
             ></app-dashboard-technical-inspector>
           </aside>
 
           <section class="panel xl:col-span-2">
-            <app-dashboard-explainability-panel [explainability]="explainability()"></app-dashboard-explainability-panel>
+            <app-dashboard-explainability-panel [sqlExplanation]="response()?.sqlExplanation"></app-dashboard-explainability-panel>
           </section>
         </div>
       </div>

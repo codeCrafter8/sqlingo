@@ -23,7 +23,7 @@
         </tr>
       </thead>
       <tbody>
-        @for (row of rows(); track $index) {
+        @for (row of resultRows(); track $index) {
           <tr class="transition hover:bg-sky-100/45">
             @for (column of columns(); track column) {
               <td class="border-t border-slate-200 px-4 py-3 align-top text-slate-800">{{ formatCellValue(row, column) }}</td>
