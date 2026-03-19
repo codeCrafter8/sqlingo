@@ -1,4 +1,4 @@
-name: CI - Build and Test
+name: CI - Backend Build and Test
 
 on:
   push:
