@@ -45,8 +45,7 @@ jobs:
       - name: Run unit tests
         env:
           CHROME_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
-          CHROMIUM_FLAGS: "--no-sandbox --disable-setuid-sandbox"
-        run: npx ng test --no-watch --no-progress --browsers=ChromeHeadless
+        run: npx ng test --no-watch --no-progress
 
       - name: Build production bundle
         run: npm run build -- --configuration production
