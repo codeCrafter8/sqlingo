@@ -1,0 +1,40 @@
+<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+  <h2 class="text-lg font-semibold text-slate-900">Wyniki zapytania</h2>
+  <div class="flex flex-wrap items-center gap-2 text-xs">
+    <span class="rounded-full border border-slate-300 bg-slate-200/75 px-3 py-1 text-slate-700">Wiersze: {{ rowCount() }}</span>
+    <span class="rounded-full border border-slate-300 bg-slate-200/75 px-3 py-1 text-slate-700">Kolumny: {{ columns().length }}</span>
+  </div>
+</div>
+
+@if (loading()) {
+  <div class="space-y-3">
+    @for (i of [1, 2, 3, 4, 5]; track i) {
+      <div class="h-9 animate-pulse rounded-lg bg-slate-200/80"></div>
+    }
+  </div>
+} @else if (hasResults()) {
+  <div class="table-scroll overflow-auto rounded-xl border border-slate-300/80 bg-slate-100/78">
+    <table class="result-table min-w-full border-separate border-spacing-0 text-left text-sm">
+      <thead class="sticky top-0 z-10">
+        <tr>
+          @for (column of columns(); track column) {
+            <th class="bg-slate-200/80 px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-slate-700">{{ formatColumnName(column) }}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of resultRows(); track $index) {
+          <tr class="transition hover:bg-sky-100/45">
+            @for (column of columns(); track column) {
+              <td class="border-t border-slate-200 px-4 py-3 align-top text-slate-800">{{ formatCellValue(row, column) }}</td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+} @else {
+  <div class="rounded-xl border border-dashed border-slate-300 bg-slate-100/70 p-8 text-center text-sm text-slate-600">
+    Brak danych wynikowych. Uruchom analize, aby wyswietlic dynamiczna tabele.
+  </div>
+}

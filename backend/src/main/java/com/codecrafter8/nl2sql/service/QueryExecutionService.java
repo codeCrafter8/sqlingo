@@ -56,7 +56,7 @@ public class QueryExecutionService {
 
             String explanation = request.isExplainSql() ? provider.explainSQL(queryLog.getGeneratedSql()) : null;
 
-            queryLogService.logSuccess(queryLog, queryLog.getGeneratedSql(), startTime);
+            queryLogService.logSuccess(queryLog, queryLog.getGeneratedSql(), results, startTime);
 
             return buildSuccessResponse(queryLog, results, explanation);
 

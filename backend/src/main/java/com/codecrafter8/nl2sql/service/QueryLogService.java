@@ -2,11 +2,14 @@ package com.codecrafter8.nl2sql.service;
 
 import com.codecrafter8.nl2sql.model.QueryLog;
 import com.codecrafter8.nl2sql.repository.QueryLogRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -14,6 +17,7 @@ import java.util.List;
 public class QueryLogService {
 
     private final QueryLogRepository queryLogRepository;
+    private final ObjectMapper objectMapper;
 
     public QueryLog initializeLog(String naturalLanguageQuery) {
         QueryLog queryLog = new QueryLog();
@@ -21,8 +25,9 @@ public class QueryLogService {
         return queryLogRepository.save(queryLog);
     }
 
-    public void logSuccess(QueryLog log, String sql, long startTime) {
+    public void logSuccess(QueryLog log, String sql, List<Map<String, Object>> results, long startTime) {
         log.setGeneratedSql(sql);
+        log.setResults(serializeResults(results));
         log.setStatus(QueryLog.QueryStatus.SUCCESS);
         log.setExecutionTimeMs(System.currentTimeMillis() - startTime);
         queryLogRepository.save(log);
@@ -47,5 +52,18 @@ public class QueryLogService {
 
     public QueryLog getLogById(Long id) {
         return queryLogRepository.findById(id).orElse(null);
+    }
+
+    private String serializeResults(List<Map<String, Object>> results) {
+        if (results == null) {
+            return null;
+        }
+
+        try {
+            return objectMapper.writeValueAsString(results);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize query results for history log, falling back to toString().", e);
+            return results.toString();
+        }
     }
 }
