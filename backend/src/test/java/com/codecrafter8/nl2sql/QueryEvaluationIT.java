@@ -1,0 +1,190 @@
+package com.codecrafter8.nl2sql;
+
+import com.codecrafter8.nl2sql.dto.QueryRequest;
+import com.codecrafter8.nl2sql.dto.QueryResponse;
+import com.codecrafter8.nl2sql.metrics.ResearchMetrics;
+import com.codecrafter8.nl2sql.metrics.ResearchMetrics.DifficultyStats;
+import com.codecrafter8.nl2sql.metrics.ResearchMetrics.QueryMetrics;
+import com.codecrafter8.nl2sql.service.QueryExecutionService;
+import com.codecrafter8.nl2sql.service.SQLExecutionService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.io.Resource;
+import org.springframework.test.context.ActiveProfiles;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+@Slf4j
+@SpringBootTest
+@ActiveProfiles("test")
+class QueryEvaluationIT {
+
+    @Autowired
+    private QueryExecutionService queryExecutionService;
+
+    @Autowired
+    private SQLExecutionService sqlExecutionService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Value("classpath:test_data/spider-hospital-pl.json")
+    private Resource testDataResource;
+
+    @Test
+    void runFullEvaluation() throws IOException {
+        List<TestCase> testCases = objectMapper.readValue(
+                testDataResource.getInputStream(),
+                new TypeReference<>() {
+                });
+
+        Map<String, DifficultyStats> statsMap = new LinkedHashMap<>();
+        statsMap.put("Easy", new DifficultyStats());
+        statsMap.put("Medium", new DifficultyStats());
+        statsMap.put("Hard", new DifficultyStats());
+
+        List<QueryMetrics> allMetrics = new ArrayList<>();
+
+        System.out.println("\n" + "=".repeat(120));
+        System.out.println("EWALUACJA SYSTEMU NL2SQL - METRYKI BADAWCZE");
+        System.out.println("=".repeat(120) + "\n");
+
+        for (TestCase test : testCases) {
+            try {
+                QueryRequest request = QueryRequest.builder()
+                        .naturalLanguageQuery(test.getQuestion())
+                        .explainSql(false)
+                        .build();
+
+                // 1. Pomiar czasu wykonania
+                long startTime = System.currentTimeMillis();
+                QueryResponse response = queryExecutionService.executeQuery(request);
+                long executionTime = System.currentTimeMillis() - startTime;
+
+                // 2. Wykonanie wzorca (gold standard)
+                List<Map<String, Object>> goldResults = sqlExecutionService.executeQuery(test.getGoldSql());
+
+                // 3. Obliczenie metryk
+                double executionAccuracy = ResearchMetrics.calculateExecutionAccuracy(
+                        (List<Map<String, Object>>) response.getResults(), goldResults);
+
+                double exactMatch = ResearchMetrics.calculateExactMatch(
+                        response.getGeneratedSql(), test.getGoldSql());
+
+                int promptTokens = response.getPromptTokens() != null ? response.getPromptTokens() : 0;
+                int completionTokens = response.getCompletionTokens() != null ? response.getCompletionTokens() : 0;
+
+                double cost = ResearchMetrics.calculateCost(promptTokens, completionTokens);
+
+                // 4. Stworzenie obiektu metryk
+                QueryMetrics metrics = new QueryMetrics(
+                        test.getId(),
+                        test.getLevel(),
+                        executionAccuracy,
+                        exactMatch,
+                        promptTokens,
+                        completionTokens,
+                        cost,
+                        executionTime
+                );
+
+                allMetrics.add(metrics);
+
+                // 5. Aktualizacja statystyk poziomu trudności
+                DifficultyStats stats = statsMap.get(test.getLevel());
+                stats.addMetrics(metrics);
+
+                // 6. Wyświetlenie wyniku
+                System.out.println(metrics);
+
+            } catch (Exception e) {
+                log.error("Błąd podczas przetwarzania zapytania ID: {}", test.getId(), e);
+                System.err.printf("ID: %d [%-6s] | BLAD: %s\n",
+                        test.getId(), test.getLevel(), e.getMessage());
+            }
+        }
+
+        printFinalSummary(statsMap, allMetrics);
+    }
+
+    private void printFinalSummary(Map<String, DifficultyStats> statsMap, List<QueryMetrics> allMetrics) {
+        System.out.println("\n" + "=".repeat(120));
+        System.out.println("PODSUMOWANIE METRYK BADAWCZYCH");
+        System.out.println("=".repeat(120));
+        System.out.printf("%-10s | %-11s | %-11s | %-10s | %-10s | %-11s | %-10s | %-8s\n",
+                "POZIOM", "EX (ACC)", "EM (ACC)", "SR. IN", "SR. OUT", "S. KOSZT", "S. CZAS", "PROBY");
+        System.out.println("-".repeat(120));
+
+        statsMap.forEach((level, stats) -> {
+            System.out.printf("%-10s | %-10.2f%% | %-10.2f%% | %-10.1f | %-10.1f | $%-10.6f | %-8.2fms | %-8d\n",
+                    level,
+                    stats.getAccuracyEx(),
+                    stats.getAccuracyEm(),
+                    stats.getAvgInputTokens(),
+                    stats.getAvgOutputTokens(),
+                    stats.getAverageCost(),
+                    stats.getAverageTimeMs(),
+                    stats.total);
+        });
+        System.out.println("-".repeat(120));
+
+        // Agregacja całkowita
+        DifficultyStats totalStats = new DifficultyStats();
+        statsMap.values().forEach(stats -> {
+            totalStats.total += stats.total;
+            totalStats.correctEx += stats.correctEx;
+            totalStats.correctEm += stats.correctEm;
+            totalStats.totalInputTokens += stats.totalInputTokens;
+            totalStats.totalOutputTokens += stats.totalOutputTokens;
+            totalStats.totalCost += stats.totalCost;
+            totalStats.totalTimeMs += stats.totalTimeMs;
+        });
+
+        System.out.printf("%-10s | %-10.2f%% | %-10.2f%% | %-10.1f | %-10.1f | $%-10.6f | %-8.2fms | %-8d\n",
+                "RAZEM",
+                totalStats.getAccuracyEx(),
+                totalStats.getAccuracyEm(),
+                totalStats.getAvgInputTokens(),
+                totalStats.getAvgOutputTokens(),
+                totalStats.getAverageCost(),
+                totalStats.getAverageTimeMs(),
+                totalStats.total);
+        System.out.println("=".repeat(120) + "\n");
+
+        // Statystyki tokenów i kosztów
+        int totalInputTokens = allMetrics.stream().mapToInt(m -> m.inputTokens).sum();
+        int totalOutputTokens = allMetrics.stream().mapToInt(m -> m.outputTokens).sum();
+        int totalTokens = totalInputTokens + totalOutputTokens;
+        double totalCost = allMetrics.stream().mapToDouble(m -> m.cost).sum();
+        long totalTime = allMetrics.stream().mapToLong(m -> m.executionTimeMs).sum();
+
+        System.out.println("PODSUMOWANIE ZASOBÓR:");
+        System.out.printf("  - Lacznie tokenow input:   %,d\n", totalInputTokens);
+        System.out.printf("  - Lacznie tokenow output:  %,d\n", totalOutputTokens);
+        System.out.printf("  - Lacznie tokenow razem:   %,d\n", totalTokens);
+        System.out.printf("  - Laczny koszt API:        $%.6f\n", totalCost);
+        System.out.printf("  - Laczny czas wykonania:   %,dms (%.2f sekund)\n", totalTime, totalTime / 1000.0);
+        System.out.printf("  - Sredni czas na zapytanie: %.2fms\n",
+                allMetrics.isEmpty() ? 0 : totalTime / (double) allMetrics.size());
+        System.out.println("=".repeat(120) + "\n");
+    }
+
+    @Data
+    static class TestCase {
+        private int id;
+        private String level;
+        private String question;
+        private String goldSql;
+    }
+}
+

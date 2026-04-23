@@ -1,5 +1,6 @@
 package com.codecrafter8.nl2sql.service;
 
+import com.codecrafter8.nl2sql.dto.LlmResponse;
 import com.codecrafter8.nl2sql.dto.QueryRequest;
 import com.codecrafter8.nl2sql.dto.QueryResponse;
 import com.codecrafter8.nl2sql.model.QueryLog;
@@ -46,9 +47,12 @@ public class QueryExecutionService {
             LLMProvider provider = getProviderOrThrow();
             String schemaContext = tableContextRetriever.retrieveRelevantSchemaContext(request.getNaturalLanguageQuery());
 
-            String sql = provider.generateSQL(request.getNaturalLanguageQuery(), schemaContext);
+            LlmResponse llmResponse = provider.generateSQL(request.getNaturalLanguageQuery(), schemaContext);
+            String sql = llmResponse.sql();
             log.info("Generated SQL: {}", sql);
             queryLog.setGeneratedSql(sql);
+            queryLog.setPromptTokens(llmResponse.promptTokens());
+            queryLog.setCompletionTokens(llmResponse.completionTokens());
 
             validateSqlOrThrow(sql);
 
@@ -79,7 +83,12 @@ public class QueryExecutionService {
             log.warn("First execution failed, attempting self-correction. Error: {}", e.getMessage());
 
             String correctionPrompt = buildSelfCorrectionUserPrompt(request.getNaturalLanguageQuery(), sql, e.getMessage());
-            String correctedSql = provider.generateSQL(correctionPrompt, schema);
+            LlmResponse llmResponse = provider.generateSQL(correctionPrompt, schema);
+            String correctedSql = llmResponse.sql();
+
+            queryLog.setGeneratedSql(sql);
+            queryLog.setPromptTokens(llmResponse.promptTokens());
+            queryLog.setCompletionTokens(llmResponse.completionTokens());
 
             queryLog.setGeneratedSql(correctedSql);
             validateSqlOrThrow(correctedSql);
@@ -121,6 +130,10 @@ public class QueryExecutionService {
                 .rowCount(results != null ? results.size() : 0)
                 .status(queryLog.getStatus().toString())
                 .executionTimeMs(queryLog.getExecutionTimeMs())
+                .promptTokens(queryLog.getPromptTokens())
+                .completionTokens(queryLog.getCompletionTokens())
+                .totalTokens(queryLog.getPromptTokens() != null && queryLog.getCompletionTokens() != null ?
+                        queryLog.getPromptTokens() + queryLog.getCompletionTokens() : 0)
                 .build();
     }
 

@@ -21,4 +21,7 @@ public class QueryResponse {
     private Long executionTimeMs;
     private String status;
     private String error;
+    private Integer promptTokens;
+    private Integer completionTokens;
+    private Integer totalTokens;
 }

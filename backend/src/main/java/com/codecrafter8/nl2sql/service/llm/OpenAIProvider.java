@@ -1,5 +1,6 @@
 package com.codecrafter8.nl2sql.service.llm;
 
+import com.codecrafter8.nl2sql.dto.LlmResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -20,17 +21,25 @@ public class OpenAIProvider implements LLMProvider {
     private final PromptLoader promptLoader;
 
     @Override
-    public String generateSQL(String naturalLanguageQuery, String schemaContext) throws LLMException {
+    public LlmResponse generateSQL(String naturalLanguageQuery, String schemaContext) throws LLMException {
         log.debug("Generating SQL from natural language using OpenAI");
 
         try {
-            return chatClient.prompt()
+            var response = chatClient.prompt()
                     .system(promptLoader.loadPrompt(GENERATE_SQL_SYSTEM_PROMPT))
                     .user(u -> u.text("Schemat bazy danych:\n{schema}\n\nZapytanie: {query}")
                             .param("schema", schemaContext)
                             .param("query", naturalLanguageQuery))
                     .call()
-                    .content();
+                    .chatResponse();
+
+            var usage = response.getMetadata().getUsage();
+
+            return LlmResponse.builder()
+                    .sql(response.getResult().getOutput().getContent())
+                    .promptTokens(usage.getPromptTokens() != null ? usage.getPromptTokens().intValue() : 0)
+                    .completionTokens(usage.getGenerationTokens() != null ? usage.getGenerationTokens().intValue() : 0)
+                    .build();
 
         } catch (Exception e) {
             log.error("Error generating SQL from LLM", e);

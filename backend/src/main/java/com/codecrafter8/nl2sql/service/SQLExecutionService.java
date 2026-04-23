@@ -19,7 +19,7 @@ public class SQLExecutionService {
 
     private final JdbcTemplate jdbcTemplate;
 
-    @Value("${app.sql-generation.max-rows-limit:1000}")
+    @Value("${app.sql-generation.max-rows-limit:999999}")
     private int maxRowsLimit;
 
     /**

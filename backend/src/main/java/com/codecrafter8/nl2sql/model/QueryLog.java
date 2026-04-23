@@ -39,6 +39,9 @@ public class QueryLog {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    private Integer promptTokens;
+    private Integer completionTokens;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
