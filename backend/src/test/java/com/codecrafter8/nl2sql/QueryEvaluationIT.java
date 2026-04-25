@@ -2,6 +2,7 @@ package com.codecrafter8.nl2sql;
 
 import com.codecrafter8.nl2sql.dto.QueryRequest;
 import com.codecrafter8.nl2sql.dto.QueryResponse;
+import com.codecrafter8.nl2sql.dto.SchemaContextMode;
 import com.codecrafter8.nl2sql.metrics.ResearchMetrics;
 import com.codecrafter8.nl2sql.metrics.ResearchMetrics.DifficultyStats;
 import com.codecrafter8.nl2sql.metrics.ResearchMetrics.QueryMetrics;
@@ -38,7 +39,7 @@ class QueryEvaluationIT {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Value("classpath:test_data/spider-hospital-pl.json")
+    @Value("classpath:spider-hospital-pl.json")
     private Resource testDataResource;
 
     @Test
@@ -48,6 +49,11 @@ class QueryEvaluationIT {
                 new TypeReference<>() {
                 });
 
+        runEvaluationForMode(SchemaContextMode.FULL_SCHEMA, testCases);
+        runEvaluationForMode(SchemaContextMode.RAG, testCases);
+    }
+
+    private void runEvaluationForMode(SchemaContextMode mode, List<TestCase> testCases) {
         Map<String, DifficultyStats> statsMap = new LinkedHashMap<>();
         statsMap.put("Easy", new DifficultyStats());
         statsMap.put("Medium", new DifficultyStats());
@@ -56,7 +62,7 @@ class QueryEvaluationIT {
         List<QueryMetrics> allMetrics = new ArrayList<>();
 
         System.out.println("\n" + "=".repeat(120));
-        System.out.println("EWALUACJA SYSTEMU NL2SQL - METRYKI BADAWCZE");
+        System.out.println("EWALUACJA SYSTEMU NL2SQL - " + mode);
         System.out.println("=".repeat(120) + "\n");
 
         for (TestCase test : testCases) {
@@ -64,17 +70,15 @@ class QueryEvaluationIT {
                 QueryRequest request = QueryRequest.builder()
                         .naturalLanguageQuery(test.getQuestion())
                         .explainSql(false)
+                        .schemaContextMode(mode)
                         .build();
 
-                // 1. Pomiar czasu wykonania
                 long startTime = System.currentTimeMillis();
                 QueryResponse response = queryExecutionService.executeQuery(request);
                 long executionTime = System.currentTimeMillis() - startTime;
 
-                // 2. Wykonanie wzorca (gold standard)
                 List<Map<String, Object>> goldResults = sqlExecutionService.executeQuery(test.getGoldSql());
 
-                // 3. Obliczenie metryk
                 double executionAccuracy = ResearchMetrics.calculateExecutionAccuracy(
                         (List<Map<String, Object>>) response.getResults(), goldResults);
 
@@ -83,10 +87,8 @@ class QueryEvaluationIT {
 
                 int promptTokens = response.getPromptTokens() != null ? response.getPromptTokens() : 0;
                 int completionTokens = response.getCompletionTokens() != null ? response.getCompletionTokens() : 0;
-
                 double cost = ResearchMetrics.calculateCost(promptTokens, completionTokens);
 
-                // 4. Stworzenie obiektu metryk
                 QueryMetrics metrics = new QueryMetrics(
                         test.getId(),
                         test.getLevel(),
@@ -99,27 +101,22 @@ class QueryEvaluationIT {
                 );
 
                 allMetrics.add(metrics);
-
-                // 5. Aktualizacja statystyk poziomu trudności
-                DifficultyStats stats = statsMap.get(test.getLevel());
-                stats.addMetrics(metrics);
-
-                // 6. Wyświetlenie wyniku
+                statsMap.get(test.getLevel()).addMetrics(metrics);
                 System.out.println(metrics);
 
             } catch (Exception e) {
-                log.error("Błąd podczas przetwarzania zapytania ID: {}", test.getId(), e);
-                System.err.printf("ID: %d [%-6s] | BLAD: %s\n",
-                        test.getId(), test.getLevel(), e.getMessage());
+                log.error("Błąd podczas przetwarzania zapytania ID: {} [{}]", test.getId(), mode, e);
+                System.err.printf("ID: %d [%-6s] [%s] | BLAD: %s\n",
+                        test.getId(), test.getLevel(), mode, e.getMessage());
             }
         }
 
-        printFinalSummary(statsMap, allMetrics);
+        printFinalSummary(mode, statsMap, allMetrics);
     }
 
-    private void printFinalSummary(Map<String, DifficultyStats> statsMap, List<QueryMetrics> allMetrics) {
+    private void printFinalSummary(SchemaContextMode mode, Map<String, DifficultyStats> statsMap, List<QueryMetrics> allMetrics) {
         System.out.println("\n" + "=".repeat(120));
-        System.out.println("PODSUMOWANIE METRYK BADAWCZYCH");
+        System.out.println("PODSUMOWANIE METRYK BADAWCZYCH - " + mode);
         System.out.println("=".repeat(120));
         System.out.printf("%-10s | %-11s | %-11s | %-10s | %-10s | %-11s | %-10s | %-8s\n",
                 "POZIOM", "EX (ACC)", "EM (ACC)", "SR. IN", "SR. OUT", "S. KOSZT", "S. CZAS", "PROBY");
@@ -168,7 +165,7 @@ class QueryEvaluationIT {
         double totalCost = allMetrics.stream().mapToDouble(m -> m.cost).sum();
         long totalTime = allMetrics.stream().mapToLong(m -> m.executionTimeMs).sum();
 
-        System.out.println("PODSUMOWANIE ZASOBÓR:");
+        System.out.println("PODSUMOWANIE ZASOBOW - " + mode + ":");
         System.out.printf("  - Lacznie tokenow input:   %,d\n", totalInputTokens);
         System.out.printf("  - Lacznie tokenow output:  %,d\n", totalOutputTokens);
         System.out.printf("  - Lacznie tokenow razem:   %,d\n", totalTokens);
@@ -187,4 +184,3 @@ class QueryEvaluationIT {
         private String goldSql;
     }
 }
-

@@ -1,6 +1,7 @@
 package com.codecrafter8.nl2sql.service;
 
 import com.codecrafter8.nl2sql.config.RagProperties;
+import com.codecrafter8.nl2sql.dto.SchemaContextMode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
@@ -22,6 +23,14 @@ public class TableContextRetriever {
     private final VectorStore vectorStore;
     private final SchemaIntrospectionService schemaIntrospectionService;
     private final RagProperties ragProperties;
+
+    public String retrieveRelevantSchemaContext(String naturalLanguageQuery, SchemaContextMode mode) {
+        if (mode == SchemaContextMode.FULL_SCHEMA) {
+            log.debug("Schema context mode: FULL_SCHEMA");
+            return schemaIntrospectionService.getSchemaContextForLLM();
+        }
+        return retrieveRelevantSchemaContext(naturalLanguageQuery);
+    }
 
     /**
      * Retrieve relevant tables for a given natural language query

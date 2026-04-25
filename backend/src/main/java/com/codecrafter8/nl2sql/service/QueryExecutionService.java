@@ -45,7 +45,9 @@ public class QueryExecutionService {
 
         try {
             LLMProvider provider = getProviderOrThrow();
-            String schemaContext = tableContextRetriever.retrieveRelevantSchemaContext(request.getNaturalLanguageQuery());
+            String schemaContext = tableContextRetriever.retrieveRelevantSchemaContext(
+                    request.getNaturalLanguageQuery(),
+                    request.getSchemaContextMode());
 
             LlmResponse llmResponse = provider.generateSQL(request.getNaturalLanguageQuery(), schemaContext);
             String sql = llmResponse.sql();

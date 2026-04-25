@@ -16,4 +16,7 @@ public class QueryRequest {
 
     private boolean explainSql;
     private int maxRows = 100;
+
+    @Builder.Default
+    private SchemaContextMode schemaContextMode = SchemaContextMode.RAG;
 }
