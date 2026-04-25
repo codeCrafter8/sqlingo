@@ -57,7 +57,7 @@
     "id": 7,
     "level": "Easy",
     "question": "Znajdź pacjenta, który przeszedł zabieg w najnowszym terminie.",
-    "goldSql": "SELECT patient FROM undergoes ORDER BY dateundergoes LIMIT 1",
+    "goldSql": "SELECT patient FROM undergoes ORDER BY dateundergoes DESC LIMIT 1",
     "requiredTables": [
       "undergoes"
     ]
@@ -120,7 +120,7 @@
     "id": 14,
     "level": "Easy",
     "question": "Znajdź trzy najdroższe procedury medyczne.",
-    "goldSql": "SELECT name FROM procedures ORDER BY cost LIMIT 3",
+    "goldSql": "SELECT name FROM procedures ORDER BY cost DESC LIMIT 3",
     "requiredTables": [
       "procedures"
     ]
@@ -138,8 +138,9 @@
     "id": 16,
     "level": "Medium",
     "question": "Który departament ma największą liczbę pracowników?",
-    "goldSql": "SELECT name FROM department GROUP BY departmentID ORDER BY count(departmentID) DESC LIMIT 1",
+    "goldSql": "SELECT T2.name FROM affiliated_with AS T1 JOIN department AS T2 ON T1.department = T2.departmentid GROUP BY T2.departmentid ORDER BY count(*) DESC LIMIT 1",
     "requiredTables": [
+      "affiliated_with",
       "department"
     ]
   },
@@ -147,8 +148,9 @@
     "id": 17,
     "level": "Medium",
     "question": "Jaki jest identyfikator lekarza kierującego oddziałem, który ma najmniejszą liczbę pracowników?",
-    "goldSql": "SELECT head FROM department GROUP BY departmentID ORDER BY count(departmentID) LIMIT 1",
+    "goldSql": "SELECT T2.head FROM affiliated_with AS T1 JOIN department AS T2 ON T1.department = T2.departmentid GROUP BY T2.departmentid ORDER BY count(*) ASC LIMIT 1",
     "requiredTables": [
+      "affiliated_with",
       "department"
     ]
   },
@@ -296,8 +298,9 @@
     "id": 32,
     "level": "Hard",
     "question": "Podaj nazwisko i stanowisko szefa oddziału, który ma najmniejszą liczbę pracowników.",
-    "goldSql": "SELECT T2.name, T2.position FROM department AS T1 JOIN physician AS T2 ON T1.head = T2.EmployeeID GROUP BY departmentID ORDER BY count(departmentID) LIMIT 1",
+    "goldSql": "SELECT T3.name, T3.position FROM affiliated_with AS T1 JOIN department AS T2 ON T1.department = T2.departmentid JOIN physician AS T3 ON T2.head = T3.EmployeeID GROUP BY T2.departmentid ORDER BY count(*) ASC LIMIT 1",
     "requiredTables": [
+      "affiliated_with",
       "department",
       "physician"
     ]
@@ -325,11 +328,10 @@
   },
   {
     "id": 35,
-    "level": "Hard",
+    "level": "Medium",
     "question": "Ile recept zostało wystawionych przez lekarza o nazwisku John Dorian?",
-    "goldSql": "SELECT count(T1.SSN) FROM patient AS T1 JOIN prescribes AS T2 ON T1.SSN = T2.patient JOIN physician AS T3 ON T2.physician = T3.employeeid WHERE T3.name = 'John Dorian'",
+    "goldSql": "SELECT count(*) FROM prescribes AS T1 JOIN physician AS T2 ON T1.physician = T2.EmployeeID WHERE T2.name = 'John Dorian'",
     "requiredTables": [
-      "patient",
       "prescribes",
       "physician"
     ]
