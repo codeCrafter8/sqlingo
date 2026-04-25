@@ -20,15 +20,20 @@ import org.springframework.core.io.Resource;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 
 @Slf4j
 @SpringBootTest
 @ActiveProfiles("test")
 class QueryEvaluationIT {
+
+    private static final DateTimeFormatter RUN_ID_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+    private String runId;
 
     @Autowired
     private QueryExecutionService queryExecutionService;
@@ -44,6 +49,8 @@ class QueryEvaluationIT {
 
     @Test
     void runFullEvaluation() throws IOException {
+        runId = LocalDateTime.now().format(RUN_ID_FORMATTER);
+
         List<TestCase> testCases = objectMapper.readValue(
                 testDataResource.getInputStream(),
                 new TypeReference<>() {
@@ -119,6 +126,7 @@ class QueryEvaluationIT {
         }
 
         printFinalSummary(mode, statsMap, allMetrics);
+        saveResultsToFile(mode, statsMap, allMetrics);
     }
 
     private void printFinalSummary(SchemaContextMode mode, Map<String, DifficultyStats> statsMap, List<QueryMetrics> allMetrics) {
@@ -183,6 +191,88 @@ class QueryEvaluationIT {
         System.out.printf("  - Sredni czas na zapytanie: %.2fms\n",
                 allMetrics.isEmpty() ? 0 : totalTime / (double) allMetrics.size());
         System.out.println("=".repeat(120) + "\n");
+    }
+
+    private void saveResultsToFile(SchemaContextMode mode,
+                                   Map<String, DifficultyStats> statsMap,
+                                   List<QueryMetrics> allMetrics) {
+        try {
+            Path outputDir = Paths.get("target", "test-results", "query-evaluation");
+            Files.createDirectories(outputDir);
+
+            String currentRunId = runId != null ? runId : LocalDateTime.now().format(RUN_ID_FORMATTER);
+            String filePrefix = "evaluation-" + currentRunId + "-" + mode.name().toLowerCase(Locale.ROOT);
+            Path csvPath = outputDir.resolve(filePrefix + "-metrics.csv");
+            Path jsonPath = outputDir.resolve(filePrefix + "-summary.json");
+
+            writeMetricsCsv(csvPath, allMetrics);
+            writeSummaryJson(jsonPath, mode, statsMap, allMetrics, currentRunId);
+
+            log.info("Wyniki ewaluacji [{}] zapisane do: {} i {}",
+                    mode,
+                    csvPath.toAbsolutePath(),
+                    jsonPath.toAbsolutePath());
+        } catch (IOException e) {
+            log.warn("Nie udalo sie zapisac wynikow ewaluacji [{}] do pliku.", mode, e);
+        }
+    }
+
+    private void writeMetricsCsv(Path csvPath, List<QueryMetrics> allMetrics) throws IOException {
+        StringBuilder csv = new StringBuilder();
+        csv.append("id,level,execution_accuracy,exact_match,table_recall,input_tokens,output_tokens,cost_usd,execution_time_ms")
+                .append(System.lineSeparator());
+
+        for (QueryMetrics metric : allMetrics) {
+            csv.append(metric.getId()).append(',')
+                    .append(escapeCsv(metric.getLevel())).append(',')
+                    .append(String.format(Locale.US, "%.4f", metric.getExecutionAccuracy())).append(',')
+                    .append(String.format(Locale.US, "%.4f", metric.getExactMatch())).append(',')
+                    .append(String.format(Locale.US, "%.4f", metric.getTableRecall())).append(',')
+                    .append(metric.getInputTokens()).append(',')
+                    .append(metric.getOutputTokens()).append(',')
+                    .append(String.format(Locale.US, "%.6f", metric.getCost())).append(',')
+                    .append(metric.getExecutionTimeMs())
+                    .append(System.lineSeparator());
+        }
+
+        Files.writeString(csvPath, csv.toString());
+    }
+
+    private void writeSummaryJson(Path jsonPath,
+                                  SchemaContextMode mode,
+                                  Map<String, DifficultyStats> statsMap,
+                                  List<QueryMetrics> allMetrics,
+                                  String currentRunId) throws IOException {
+        DifficultyStats totalStats = new DifficultyStats();
+        statsMap.values().forEach(stats -> {
+            totalStats.total += stats.total;
+            totalStats.correctEx += stats.correctEx;
+            totalStats.correctEm += stats.correctEm;
+            totalStats.totalTableRecall += stats.totalTableRecall;
+            totalStats.totalInputTokens += stats.totalInputTokens;
+            totalStats.totalOutputTokens += stats.totalOutputTokens;
+            totalStats.totalCost += stats.totalCost;
+            totalStats.totalTimeMs += stats.totalTimeMs;
+        });
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("runId", currentRunId);
+        summary.put("mode", mode.name());
+        summary.put("queryCount", allMetrics.size());
+        summary.put("levels", statsMap);
+        summary.put("totals", totalStats);
+
+        objectMapper.writerWithDefaultPrettyPrinter().writeValue(jsonPath.toFile(), summary);
+    }
+
+    private String escapeCsv(String value) {
+        if (value == null) {
+            return "";
+        }
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return '"' + value.replace("\"", "\"\"") + '"';
+        }
+        return value;
     }
 
     @Data
