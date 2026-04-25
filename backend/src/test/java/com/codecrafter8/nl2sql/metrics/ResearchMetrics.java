@@ -119,16 +119,17 @@ public class ResearchMetrics {
         public String level;                // Poziom trudności (Easy/Medium/Hard)
         public double executionAccuracy;    // EX: Dokładność wykonania (0.0-1.0)
         public double exactMatch;           // EM: Dokładne dopasowanie SQL (0.0-1.0)
+        public double tableRecall;          // Recall tabel wybranych przez RAG (0.0-1.0)
         public int inputTokens;
-        public int outputTokens;                  // Liczba tokenów w pytaniu
+        public int outputTokens;            // Liczba tokenów w odpowiedzi
         public double cost;                 // Szacunkowy koszt API w USD
         public long executionTimeMs;        // Czas wykonania w milisekundach
 
         @Override
         public String toString() {
             return String.format(
-                    "ID:%d [%-10s] | EX:%.2f | EM:%.2f | In:%d Out:%d | Cost:$%.6f | Time:%dms",
-                    id, level, executionAccuracy, exactMatch,
+                    "ID:%d [%-10s] | EX:%.2f | EM:%.2f | TR:%.2f | In:%d Out:%d | Cost:$%.6f | Time:%dms",
+                    id, level, executionAccuracy, exactMatch, tableRecall,
                     inputTokens, outputTokens, cost, executionTimeMs
             );
         }
@@ -142,6 +143,7 @@ public class ResearchMetrics {
         public int total = 0;
         public int correctEx = 0;
         public int correctEm = 0;
+        public double totalTableRecall = 0.0;
         public int totalInputTokens = 0;
         public int totalOutputTokens = 0;
         public double totalCost = 0.0;
@@ -151,6 +153,7 @@ public class ResearchMetrics {
             total++;
             if (metrics.executionAccuracy >= 0.99) correctEx++;
             if (metrics.exactMatch >= 0.99) correctEm++;
+            totalTableRecall += metrics.tableRecall;
             totalInputTokens += metrics.inputTokens;
             totalOutputTokens += metrics.outputTokens;
             totalCost += metrics.cost;
@@ -179,6 +182,10 @@ public class ResearchMetrics {
 
         public double getAverageTimeMs() {
             return total > 0 ? (double) totalTimeMs / total : 0;
+        }
+
+        public double getAverageTableRecall() {
+            return total > 0 ? totalTableRecall / total : 0;
         }
     }
 }

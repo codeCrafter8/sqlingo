@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -24,4 +26,5 @@ public class QueryResponse {
     private Integer promptTokens;
     private Integer completionTokens;
     private Integer totalTokens;
+    private List<String> selectedTables;  // Tabele wybrane przez RAG
 }

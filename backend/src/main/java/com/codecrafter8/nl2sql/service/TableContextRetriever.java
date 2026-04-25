@@ -24,10 +24,13 @@ public class TableContextRetriever {
     private final SchemaIntrospectionService schemaIntrospectionService;
     private final RagProperties ragProperties;
 
-    public String retrieveRelevantSchemaContext(String naturalLanguageQuery, SchemaContextMode mode) {
+    public record SchemaContextResult(String schemaContext, List<String> selectedTables) {
+    }
+
+    public SchemaContextResult retrieveRelevantSchemaContext(String naturalLanguageQuery, SchemaContextMode mode) {
         if (mode == SchemaContextMode.FULL_SCHEMA) {
             log.debug("Schema context mode: FULL_SCHEMA");
-            return schemaIntrospectionService.getSchemaContextForLLM();
+            return new SchemaContextResult(schemaIntrospectionService.getSchemaContextForLLM(), List.of());
         }
         return retrieveRelevantSchemaContext(naturalLanguageQuery);
     }
@@ -37,12 +40,12 @@ public class TableContextRetriever {
      * Returns a focused schema context containing only the most relevant tables
      *
      * @param naturalLanguageQuery User's query in natural language
-     * @return Schema context string containing relevant tables, or full schema if RAG is disabled/fails
+     * @return Schema context + selected tables, or full schema if RAG is disabled/fails
      */
-    public String retrieveRelevantSchemaContext(String naturalLanguageQuery) {
+    public SchemaContextResult retrieveRelevantSchemaContext(String naturalLanguageQuery) {
         if (!ragProperties.isEnabled()) {
             log.debug("RAG is disabled, returning full schema");
-            return schemaIntrospectionService.getSchemaContextForLLM();
+            return new SchemaContextResult(schemaIntrospectionService.getSchemaContextForLLM(), List.of());
         }
 
         try {
@@ -62,11 +65,11 @@ public class TableContextRetriever {
 
                 if (ragProperties.isFallbackToFullSchema()) {
                     log.debug("Fallback: returning full schema");
-                    return schemaIntrospectionService.getSchemaContextForLLM();
-                } else {
-                    log.warn("Fallback disabled - returning empty context");
-                    return "No relevant tables found for this query.";
+                    return new SchemaContextResult(schemaIntrospectionService.getSchemaContextForLLM(), List.of());
                 }
+
+                log.warn("Fallback disabled - returning empty context");
+                return new SchemaContextResult("No relevant tables found for this query.", List.of());
             }
 
             // Extract table names from documents
@@ -79,11 +82,11 @@ public class TableContextRetriever {
             log.info("Retrieved {} relevant tables: {}", relevantTables.size(), relevantTables);
 
             // Build focused schema context
-            return buildFocusedSchemaContext(relevantTables, relevantDocs);
+            return new SchemaContextResult(buildFocusedSchemaContext(relevantTables, relevantDocs), relevantTables);
 
         } catch (Exception e) {
             log.error("Error during RAG retrieval, falling back to full schema", e);
-            return schemaIntrospectionService.getSchemaContextForLLM();
+            return new SchemaContextResult(schemaIntrospectionService.getSchemaContextForLLM(), List.of());
         }
     }
 

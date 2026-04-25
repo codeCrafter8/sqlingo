@@ -42,12 +42,16 @@ public class QueryExecutionService {
         long startTime = System.currentTimeMillis();
 
         QueryLog queryLog = queryLogService.initializeLog(request.getNaturalLanguageQuery());
+        List<String> selectedTables = List.of();
 
         try {
             LLMProvider provider = getProviderOrThrow();
-            String schemaContext = tableContextRetriever.retrieveRelevantSchemaContext(
+            TableContextRetriever.SchemaContextResult contextResult = tableContextRetriever.retrieveRelevantSchemaContext(
                     request.getNaturalLanguageQuery(),
                     request.getSchemaContextMode());
+
+            String schemaContext = contextResult.schemaContext();
+            selectedTables = contextResult.selectedTables();
 
             LlmResponse llmResponse = provider.generateSQL(request.getNaturalLanguageQuery(), schemaContext);
             String sql = llmResponse.sql();
@@ -64,11 +68,11 @@ public class QueryExecutionService {
 
             queryLogService.logSuccess(queryLog, queryLog.getGeneratedSql(), results, startTime);
 
-            return buildSuccessResponse(queryLog, results, explanation);
+            return buildSuccessResponse(queryLog, results, explanation, selectedTables);
 
         } catch (Exception e) {
             queryLogService.logError(queryLog, e, queryLog.getGeneratedSql(), startTime);
-            return buildErrorResponse(queryLog);
+            return buildErrorResponse(queryLog, selectedTables);
         }
     }
 
@@ -122,7 +126,7 @@ public class QueryExecutionService {
                 .replace("{{executionError}}", executionError);
     }
 
-    private QueryResponse buildSuccessResponse(QueryLog queryLog, List<Map<String, Object>> results, String explanation) {
+    private QueryResponse buildSuccessResponse(QueryLog queryLog, List<Map<String, Object>> results, String explanation, List<String> selectedTables) {
         return QueryResponse.builder()
                 .id(queryLog.getId())
                 .naturalLanguageQuery(queryLog.getNaturalLanguageQuery())
@@ -136,10 +140,11 @@ public class QueryExecutionService {
                 .completionTokens(queryLog.getCompletionTokens())
                 .totalTokens(queryLog.getPromptTokens() != null && queryLog.getCompletionTokens() != null ?
                         queryLog.getPromptTokens() + queryLog.getCompletionTokens() : 0)
+                .selectedTables(selectedTables)
                 .build();
     }
 
-    private QueryResponse buildErrorResponse(QueryLog queryLog) {
+    private QueryResponse buildErrorResponse(QueryLog queryLog, List<String> selectedTables) {
         return QueryResponse.builder()
                 .id(queryLog.getId())
                 .naturalLanguageQuery(queryLog.getNaturalLanguageQuery())
@@ -147,6 +152,7 @@ public class QueryExecutionService {
                 .status(queryLog.getStatus().toString())
                 .error(queryLog.getError())
                 .executionTimeMs(queryLog.getExecutionTimeMs())
+                .selectedTables(selectedTables)
                 .build();
     }
 }

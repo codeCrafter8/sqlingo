@@ -49,6 +49,8 @@ class QueryEvaluationIT {
                 new TypeReference<>() {
                 });
 
+        performWarmUp();
+
         runEvaluationForMode(SchemaContextMode.FULL_SCHEMA, testCases);
         runEvaluationForMode(SchemaContextMode.RAG, testCases);
     }
@@ -85,6 +87,10 @@ class QueryEvaluationIT {
                 double exactMatch = ResearchMetrics.calculateExactMatch(
                         response.getGeneratedSql(), test.getGoldSql());
 
+                double tableRecall = mode == SchemaContextMode.RAG
+                        ? ResearchMetrics.calculateTableRecall(response.getSelectedTables(), test.getRequiredTables())
+                        : 1.0;
+
                 int promptTokens = response.getPromptTokens() != null ? response.getPromptTokens() : 0;
                 int completionTokens = response.getCompletionTokens() != null ? response.getCompletionTokens() : 0;
                 double cost = ResearchMetrics.calculateCost(promptTokens, completionTokens);
@@ -94,6 +100,7 @@ class QueryEvaluationIT {
                         test.getLevel(),
                         executionAccuracy,
                         exactMatch,
+                        tableRecall,
                         promptTokens,
                         completionTokens,
                         cost,
@@ -118,15 +125,16 @@ class QueryEvaluationIT {
         System.out.println("\n" + "=".repeat(120));
         System.out.println("PODSUMOWANIE METRYK BADAWCZYCH - " + mode);
         System.out.println("=".repeat(120));
-        System.out.printf("%-10s | %-11s | %-11s | %-10s | %-10s | %-11s | %-10s | %-8s\n",
-                "POZIOM", "EX (ACC)", "EM (ACC)", "SR. IN", "SR. OUT", "S. KOSZT", "S. CZAS", "PROBY");
+        System.out.printf("%-10s | %-11s | %-11s | %-8s | %-10s | %-10s | %-11s | %-10s | %-8s\n",
+                "POZIOM", "EX (ACC)", "EM (ACC)", "SR.TR", "SR. IN", "SR. OUT", "S. KOSZT", "S. CZAS", "PROBY");
         System.out.println("-".repeat(120));
 
         statsMap.forEach((level, stats) -> {
-            System.out.printf("%-10s | %-10.2f%% | %-10.2f%% | %-10.1f | %-10.1f | $%-10.6f | %-8.2fms | %-8d\n",
+            System.out.printf("%-10s | %-10.2f%% | %-10.2f%% | %-8.2f | %-10.1f | %-10.1f | $%-10.6f | %-8.2fms | %-8d\n",
                     level,
                     stats.getAccuracyEx(),
                     stats.getAccuracyEm(),
+                    stats.getAverageTableRecall(),
                     stats.getAvgInputTokens(),
                     stats.getAvgOutputTokens(),
                     stats.getAverageCost(),
@@ -135,22 +143,23 @@ class QueryEvaluationIT {
         });
         System.out.println("-".repeat(120));
 
-        // Agregacja całkowita
         DifficultyStats totalStats = new DifficultyStats();
         statsMap.values().forEach(stats -> {
             totalStats.total += stats.total;
             totalStats.correctEx += stats.correctEx;
             totalStats.correctEm += stats.correctEm;
+            totalStats.totalTableRecall += stats.totalTableRecall;
             totalStats.totalInputTokens += stats.totalInputTokens;
             totalStats.totalOutputTokens += stats.totalOutputTokens;
             totalStats.totalCost += stats.totalCost;
             totalStats.totalTimeMs += stats.totalTimeMs;
         });
 
-        System.out.printf("%-10s | %-10.2f%% | %-10.2f%% | %-10.1f | %-10.1f | $%-10.6f | %-8.2fms | %-8d\n",
+        System.out.printf("%-10s | %-10.2f%% | %-10.2f%% | %-8.2f | %-10.1f | %-10.1f | $%-10.6f | %-8.2fms | %-8d\n",
                 "RAZEM",
                 totalStats.getAccuracyEx(),
                 totalStats.getAccuracyEm(),
+                totalStats.getAverageTableRecall(),
                 totalStats.getAvgInputTokens(),
                 totalStats.getAvgOutputTokens(),
                 totalStats.getAverageCost(),
@@ -182,5 +191,24 @@ class QueryEvaluationIT {
         private String level;
         private String question;
         private String goldSql;
+        private List<String> requiredTables;
+    }
+
+    private void performWarmUp() {
+        log.info("Rozpoczynanie fazy rozgrzewki (warm-up) systemu...");
+        try {
+            QueryRequest warmUpRequest = QueryRequest.builder()
+                    .naturalLanguageQuery("Ilu jest lekarzy?") // Dowolne proste pytanie
+                    .explainSql(false)
+                    .schemaContextMode(SchemaContextMode.RAG)
+                    .build();
+
+            // Wykonujemy zapytanie, ale nie zapisujemy jego metryk do raportu
+            queryExecutionService.executeQuery(warmUpRequest);
+
+            log.info("Faza rozgrzewki zakończona pomyślnie. System gotowy do pomiarów.");
+        } catch (Exception e) {
+            log.warn("Ostrzeżenie: Błąd podczas rozgrzewki. Pierwsze wyniki czasowe mogą być zawyżone.", e);
+        }
     }
 }
