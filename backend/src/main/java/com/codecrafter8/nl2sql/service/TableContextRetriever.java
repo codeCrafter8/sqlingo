@@ -58,6 +58,9 @@ public class TableContextRetriever {
 
             // Search vector store
             List<Document> relevantDocs = vectorStore.similaritySearch(searchRequest);
+            relevantDocs.forEach(doc -> log.info("SCORE_DEBUG | table={} | score={}",
+                    doc.getMetadata().get("table_name"),
+                    doc.getMetadata().get("distance")));
 
             if (relevantDocs.isEmpty()) {
                 log.warn("No relevant tables found above threshold {}. Using fallback strategy.",

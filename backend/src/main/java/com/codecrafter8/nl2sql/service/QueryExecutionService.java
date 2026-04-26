@@ -10,6 +10,7 @@ import com.codecrafter8.nl2sql.service.llm.PromptLoader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,11 +22,15 @@ import java.util.Map;
  * and executing them against the database.
  */
 @Slf4j
-@RequiredArgsConstructor
 @Service
+@RequiredArgsConstructor
 public class QueryExecutionService {
 
     private static final String SELF_CORRECT_SQL_USER_PROMPT = "prompts/openai/self-correct-sql-user.txt";
+
+    @Value("${app.llm.self-correction-enabled:false}")
+    private final boolean selfCorrectionEnabled = false;
+
     private final QueryLogService queryLogService;
     private final SQLValidationService sqlValidationService;
     private final SQLExecutionService sqlExecutionService;
@@ -54,17 +59,20 @@ public class QueryExecutionService {
             selectedTables = contextResult.selectedTables();
 
             LlmResponse llmResponse = provider.generateSQL(request.getNaturalLanguageQuery(), schemaContext);
-            String sql = llmResponse.sql();
-            log.info("Generated SQL: {}", sql);
-            queryLog.setGeneratedSql(sql);
+            String initialSql = llmResponse.sql();
+            log.info("Generated SQL: {}", initialSql);
+            queryLog.setGeneratedSql(initialSql);
             queryLog.setPromptTokens(llmResponse.promptTokens());
             queryLog.setCompletionTokens(llmResponse.completionTokens());
 
-            validateSqlOrThrow(sql);
+            validateSqlOrThrow(initialSql);
 
-            List<Map<String, Object>> results = executeWithRetry(sql, request, schemaContext, provider, queryLog);
+            List<Map<String, Object>> results = executeWithOptionalRetry(
+                    initialSql, request, schemaContext, provider, queryLog);
 
-            String explanation = request.isExplainSql() ? provider.explainSQL(queryLog.getGeneratedSql()) : null;
+            String explanation = request.isExplainSql()
+                    ? provider.explainSQL(queryLog.getGeneratedSql())
+                    : null;
 
             queryLogService.logSuccess(queryLog, queryLog.getGeneratedSql(), results, startTime);
 
@@ -76,7 +84,7 @@ public class QueryExecutionService {
         }
     }
 
-    private List<Map<String, Object>> executeWithRetry(
+    private List<Map<String, Object>> executeWithOptionalRetry(
             String sql,
             QueryRequest request,
             String schema,
@@ -86,17 +94,25 @@ public class QueryExecutionService {
         try {
             return sqlExecutionService.executeQuery(sql);
         } catch (SQLExecutionService.SQLExecutionException e) {
+            if (!selfCorrectionEnabled) {
+                log.warn("Self-correction is disabled. Returning original execution error: {}", e.getMessage());
+                throw e;
+            }
+
             log.warn("First execution failed, attempting self-correction. Error: {}", e.getMessage());
 
-            String correctionPrompt = buildSelfCorrectionUserPrompt(request.getNaturalLanguageQuery(), sql, e.getMessage());
-            LlmResponse llmResponse = provider.generateSQL(correctionPrompt, schema);
-            String correctedSql = llmResponse.sql();
+            String correctionPrompt = buildSelfCorrectionUserPrompt(
+                    request.getNaturalLanguageQuery(), sql, e.getMessage());
 
-            queryLog.setGeneratedSql(sql);
-            queryLog.setPromptTokens(llmResponse.promptTokens());
-            queryLog.setCompletionTokens(llmResponse.completionTokens());
+            LlmResponse correctionResponse = provider.generateSQL(correctionPrompt, schema);
+            String correctedSql = correctionResponse.sql();
 
+            log.info("Otrzymano poprawiony SQL: {}", correctedSql);
+
+            queryLog.setPromptTokens(queryLog.getPromptTokens() + correctionResponse.promptTokens());
+            queryLog.setCompletionTokens(queryLog.getCompletionTokens() + correctionResponse.completionTokens());
             queryLog.setGeneratedSql(correctedSql);
+
             validateSqlOrThrow(correctedSql);
 
             return sqlExecutionService.executeQuery(correctedSql);

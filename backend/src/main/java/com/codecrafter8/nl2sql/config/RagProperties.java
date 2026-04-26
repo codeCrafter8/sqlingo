@@ -29,7 +29,7 @@ public class RagProperties {
     /**
      * Fallback to full schema if no tables meet threshold
      */
-    private boolean fallbackToFullSchema = true;
+    private boolean fallbackToFullSchema = false;
 
     /**
      * Index schema on application startup

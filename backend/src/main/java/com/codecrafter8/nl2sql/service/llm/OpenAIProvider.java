@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 @ConditionalOnProperty(name = "llm.provider", havingValue = "openai")
 public class OpenAIProvider implements LLMProvider {
 
-    private static final String GENERATE_SQL_SYSTEM_PROMPT = "prompts/openai/generate-sql-system.txt";
+    private static final String GENERATE_SQL_SYSTEM_PROMPT = "prompts/openai/generate-sql-system-zero-shot.txt";
     private static final String EXPLAIN_SQL_SYSTEM_PROMPT = "prompts/openai/explain-sql-system.txt";
     private static final String VALIDATE_QUERY_SYSTEM_PROMPT = "prompts/openai/validate-query-system.txt";
 
