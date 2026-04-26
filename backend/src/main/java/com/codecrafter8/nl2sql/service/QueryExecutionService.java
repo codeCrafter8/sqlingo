@@ -29,7 +29,7 @@ public class QueryExecutionService {
     private static final String SELF_CORRECT_SQL_USER_PROMPT = "prompts/openai/self-correct-sql-user.txt";
 
     @Value("${app.llm.self-correction-enabled:false}")
-    private final boolean selfCorrectionEnabled = false;
+    private boolean selfCorrectionEnabled = false;
 
     private final QueryLogService queryLogService;
     private final SQLValidationService sqlValidationService;
