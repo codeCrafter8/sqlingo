@@ -26,7 +26,8 @@ public final class SqlNormalizer {
             return "";
         }
 
-        String s = sql.trim();
+        String s = sql.trim().toLowerCase();
+        s = s.replaceAll(";$", "");
         s = normalizeWhitespace(s);
         s = uppercaseKeywords(s);
         s = normalizeQuotes(s);

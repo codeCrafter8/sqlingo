@@ -124,6 +124,8 @@ public class ResearchMetrics {
         public int outputTokens;            // Liczba tokenów w odpowiedzi
         public double cost;                 // Szacunkowy koszt API w USD
         public long executionTimeMs;        // Czas wykonania w milisekundach
+        public String generatedSql;         // SQL wygenerowany przez LLM
+        public String goldSql;              // SQL referencyjny z pliku testowego
 
         @Override
         public String toString() {

@@ -111,7 +111,9 @@ class QueryEvaluationIT {
                         promptTokens,
                         completionTokens,
                         cost,
-                        executionTime
+                        executionTime,
+                        response.getGeneratedSql(),
+                        test.getGoldSql()
                 );
 
                 allMetrics.add(metrics);
@@ -219,7 +221,7 @@ class QueryEvaluationIT {
 
     private void writeMetricsCsv(Path csvPath, List<QueryMetrics> allMetrics) throws IOException {
         StringBuilder csv = new StringBuilder();
-        csv.append("id,level,execution_accuracy,exact_match,table_recall,input_tokens,output_tokens,cost_usd,execution_time_ms")
+        csv.append("id,level,execution_accuracy,exact_match,table_recall,input_tokens,output_tokens,cost_usd,execution_time_ms,generated_sql,gold_sql")
                 .append(System.lineSeparator());
 
         for (QueryMetrics metric : allMetrics) {
@@ -231,7 +233,9 @@ class QueryEvaluationIT {
                     .append(metric.getInputTokens()).append(',')
                     .append(metric.getOutputTokens()).append(',')
                     .append(String.format(Locale.US, "%.6f", metric.getCost())).append(',')
-                    .append(metric.getExecutionTimeMs())
+                    .append(metric.getExecutionTimeMs()).append(',')
+                    .append(escapeCsv(metric.getGeneratedSql())).append(',')
+                    .append(escapeCsv(metric.getGoldSql()))
                     .append(System.lineSeparator());
         }
 
