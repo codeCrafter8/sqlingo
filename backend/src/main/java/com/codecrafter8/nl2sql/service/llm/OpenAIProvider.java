@@ -4,6 +4,7 @@ import com.codecrafter8.nl2sql.dto.LlmResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
@@ -13,12 +14,14 @@ import org.springframework.stereotype.Service;
 @ConditionalOnProperty(name = "llm.provider", havingValue = "openai")
 public class OpenAIProvider implements LLMProvider {
 
-    private static final String GENERATE_SQL_SYSTEM_PROMPT = "prompts/openai/generate-sql-system-zero-shot.txt";
     private static final String EXPLAIN_SQL_SYSTEM_PROMPT = "prompts/openai/explain-sql-system.txt";
     private static final String VALIDATE_QUERY_SYSTEM_PROMPT = "prompts/openai/validate-query-system.txt";
 
     private final ChatClient chatClient;
     private final PromptLoader promptLoader;
+
+    @Value("${app.sql-generation.system-prompt:prompts/openai/generate-sql-system-zero-shot.txt}")
+    private String generateSqlSystemPrompt;
 
     @Override
     public LlmResponse generateSQL(String naturalLanguageQuery, String schemaContext) throws LLMException {
@@ -26,7 +29,7 @@ public class OpenAIProvider implements LLMProvider {
 
         try {
             var response = chatClient.prompt()
-                    .system(promptLoader.loadPrompt(GENERATE_SQL_SYSTEM_PROMPT))
+                    .system(promptLoader.loadPrompt(generateSqlSystemPrompt))
                     .user(u -> u.text("Schemat bazy danych:\n{schema}\n\nZapytanie: {query}")
                             .param("schema", schemaContext)
                             .param("query", naturalLanguageQuery))

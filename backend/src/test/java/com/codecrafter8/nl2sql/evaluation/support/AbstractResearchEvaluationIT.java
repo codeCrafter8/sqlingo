@@ -1,4 +1,4 @@
-package com.codecrafter8.nl2sql;
+package com.codecrafter8.nl2sql.evaluation.support;
 
 import com.codecrafter8.nl2sql.dto.QueryRequest;
 import com.codecrafter8.nl2sql.dto.QueryResponse;
@@ -12,12 +12,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.env.Environment;
 import org.springframework.core.io.Resource;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,41 +26,57 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Slf4j
-@SpringBootTest
-@ActiveProfiles("test")
-class QueryEvaluationIT {
+public abstract class AbstractResearchEvaluationIT {
 
     private static final DateTimeFormatter RUN_ID_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+    private static final String DEFAULT_WARM_UP_QUERY = "Ilu jest lekarzy?";
+
     private String runId;
 
     @Autowired
-    private QueryExecutionService queryExecutionService;
+    protected QueryExecutionService queryExecutionService;
 
     @Autowired
-    private SQLExecutionService sqlExecutionService;
+    protected SQLExecutionService sqlExecutionService;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    protected ObjectMapper objectMapper;
+
+    @Autowired
+    private Environment environment;
 
     @Value("classpath:spider-hospital-pl.json")
-    private Resource testDataResource;
+    protected Resource testDataResource;
 
-    @Test
-    void runFullEvaluation() throws IOException {
+    protected void runCampaign(String reportPrefix, String campaignTitle, List<SchemaContextMode> modes) throws IOException {
         runId = LocalDateTime.now().format(RUN_ID_FORMATTER);
 
-        List<TestCase> testCases = objectMapper.readValue(
-                testDataResource.getInputStream(),
-                new TypeReference<>() {
-                });
-
+        List<TestCase> testCases = loadTestCases();
         performWarmUp();
 
-        runEvaluationForMode(SchemaContextMode.FULL_SCHEMA, testCases);
-        runEvaluationForMode(SchemaContextMode.RAG, testCases);
+        System.out.println("\n" + "=".repeat(120));
+        System.out.println(campaignTitle);
+        System.out.printf("MODEL: %s | PROMPT: %s%n",
+                resolvedModel(),
+                resolvedSystemPrompt());
+        System.out.println("=".repeat(120) + "\n");
+
+        for (SchemaContextMode mode : modes) {
+            runEvaluationForMode(reportPrefix, campaignTitle, mode, testCases);
+        }
     }
 
-    private void runEvaluationForMode(SchemaContextMode mode, List<TestCase> testCases) {
+    protected List<TestCase> loadTestCases() throws IOException {
+        try (var inputStream = testDataResource.getInputStream()) {
+            return objectMapper.readValue(inputStream, new TypeReference<List<TestCase>>() {
+            });
+        }
+    }
+
+    protected void runEvaluationForMode(String reportPrefix,
+                                        String campaignTitle,
+                                        SchemaContextMode mode,
+                                        List<TestCase> testCases) {
         Map<String, DifficultyStats> statsMap = new LinkedHashMap<>();
         statsMap.put("Easy", new DifficultyStats());
         statsMap.put("Medium", new DifficultyStats());
@@ -71,7 +85,7 @@ class QueryEvaluationIT {
         List<QueryMetrics> allMetrics = new ArrayList<>();
 
         System.out.println("\n" + "=".repeat(120));
-        System.out.println("EWALUACJA SYSTEMU NL2SQL - " + mode);
+        System.out.println(campaignTitle + " - " + mode);
         System.out.println("=".repeat(120) + "\n");
 
         for (TestCase test : testCases) {
@@ -86,14 +100,12 @@ class QueryEvaluationIT {
                 QueryResponse response = queryExecutionService.executeQuery(request);
                 long executionTime = System.currentTimeMillis() - startTime;
 
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> generatedResults = (List<Map<String, Object>>) response.getResults();
                 List<Map<String, Object>> goldResults = sqlExecutionService.executeQuery(test.getGoldSql());
 
-                double executionAccuracy = ResearchMetrics.calculateExecutionAccuracy(
-                        (List<Map<String, Object>>) response.getResults(), goldResults);
-
-                double exactMatch = ResearchMetrics.calculateExactMatch(
-                        response.getGeneratedSql(), test.getGoldSql());
-
+                double executionAccuracy = ResearchMetrics.calculateExecutionAccuracy(generatedResults, goldResults);
+                double exactMatch = ResearchMetrics.calculateExactMatch(response.getGeneratedSql(), test.getGoldSql());
                 double tableRecall = mode == SchemaContextMode.RAG
                         ? ResearchMetrics.calculateTableRecall(response.getSelectedTables(), test.getRequiredTables())
                         : 1.0;
@@ -122,25 +134,28 @@ class QueryEvaluationIT {
 
             } catch (Exception e) {
                 log.error("Błąd podczas przetwarzania zapytania ID: {} [{}]", test.getId(), mode, e);
-                System.err.printf("ID: %d [%-6s] [%s] | BLAD: %s\n",
+                System.err.printf("ID: %d [%-6s] [%s] | BLAD: %s%n",
                         test.getId(), test.getLevel(), mode, e.getMessage());
             }
         }
 
-        printFinalSummary(mode, statsMap, allMetrics);
-        saveResultsToFile(mode, statsMap, allMetrics);
+        printFinalSummary(campaignTitle, mode, statsMap, allMetrics);
+        saveResultsToFile(reportPrefix, campaignTitle, mode, statsMap, allMetrics);
     }
 
-    private void printFinalSummary(SchemaContextMode mode, Map<String, DifficultyStats> statsMap, List<QueryMetrics> allMetrics) {
+    protected void printFinalSummary(String campaignTitle,
+                                     SchemaContextMode mode,
+                                     Map<String, DifficultyStats> statsMap,
+                                     List<QueryMetrics> allMetrics) {
         System.out.println("\n" + "=".repeat(120));
-        System.out.println("PODSUMOWANIE METRYK BADAWCZYCH - " + mode);
+        System.out.println(campaignTitle + " - PODSUMOWANIE METRYK BADAWCZYCH - " + mode);
         System.out.println("=".repeat(120));
-        System.out.printf("%-10s | %-11s | %-11s | %-8s | %-10s | %-10s | %-11s | %-10s | %-8s\n",
+        System.out.printf("%-10s | %-11s | %-11s | %-8s | %-10s | %-10s | %-11s | %-10s | %-8s%n",
                 "POZIOM", "EX (ACC)", "EM (ACC)", "SR.TR", "SR. IN", "SR. OUT", "S. KOSZT", "S. CZAS", "PROBY");
         System.out.println("-".repeat(120));
 
         statsMap.forEach((level, stats) -> {
-            System.out.printf("%-10s | %-10.2f%% | %-10.2f%% | %-8.2f | %-10.1f | %-10.1f | $%-10.6f | %-8.2fms | %-8d\n",
+            System.out.printf("%-10s | %-10.2f%% | %-10.2f%% | %-8.2f | %-10.1f | %-10.1f | $%-10.6f | %-8.2fms | %-8d%n",
                     level,
                     stats.getAccuracyEx(),
                     stats.getAccuracyEm(),
@@ -165,7 +180,7 @@ class QueryEvaluationIT {
             totalStats.totalTimeMs += stats.totalTimeMs;
         });
 
-        System.out.printf("%-10s | %-10.2f%% | %-10.2f%% | %-8.2f | %-10.1f | %-10.1f | $%-10.6f | %-8.2fms | %-8d\n",
+        System.out.printf("%-10s | %-10.2f%% | %-10.2f%% | %-8.2f | %-10.1f | %-10.1f | $%-10.6f | %-8.2fms | %-8d%n",
                 "RAZEM",
                 totalStats.getAccuracyEx(),
                 totalStats.getAccuracyEm(),
@@ -177,49 +192,51 @@ class QueryEvaluationIT {
                 totalStats.total);
         System.out.println("=".repeat(120) + "\n");
 
-        // Statystyki tokenów i kosztów
         int totalInputTokens = allMetrics.stream().mapToInt(m -> m.inputTokens).sum();
         int totalOutputTokens = allMetrics.stream().mapToInt(m -> m.outputTokens).sum();
         int totalTokens = totalInputTokens + totalOutputTokens;
         double totalCost = allMetrics.stream().mapToDouble(m -> m.cost).sum();
         long totalTime = allMetrics.stream().mapToLong(m -> m.executionTimeMs).sum();
 
-        System.out.println("PODSUMOWANIE ZASOBOW - " + mode + ":");
-        System.out.printf("  - Lacznie tokenow input:   %,d\n", totalInputTokens);
-        System.out.printf("  - Lacznie tokenow output:  %,d\n", totalOutputTokens);
-        System.out.printf("  - Lacznie tokenow razem:   %,d\n", totalTokens);
-        System.out.printf("  - Laczny koszt API:        $%.6f\n", totalCost);
-        System.out.printf("  - Laczny czas wykonania:   %,dms (%.2f sekund)\n", totalTime, totalTime / 1000.0);
-        System.out.printf("  - Sredni czas na zapytanie: %.2fms\n",
+        System.out.println("PODSUMOWANIE ZASOBOW - " + campaignTitle + " - " + mode + ":");
+        System.out.printf("  - Lacznie tokenow input:   %,d%n", totalInputTokens);
+        System.out.printf("  - Lacznie tokenow output:  %,d%n", totalOutputTokens);
+        System.out.printf("  - Lacznie tokenow razem:   %,d%n", totalTokens);
+        System.out.printf("  - Laczny koszt API:        $%.6f%n", totalCost);
+        System.out.printf("  - Laczny czas wykonania:   %,dms (%.2f sekund)%n", totalTime, totalTime / 1000.0);
+        System.out.printf("  - Sredni czas na zapytanie: %.2fms%n",
                 allMetrics.isEmpty() ? 0 : totalTime / (double) allMetrics.size());
         System.out.println("=".repeat(120) + "\n");
     }
 
-    private void saveResultsToFile(SchemaContextMode mode,
-                                   Map<String, DifficultyStats> statsMap,
-                                   List<QueryMetrics> allMetrics) {
+    protected void saveResultsToFile(String reportPrefix,
+                                     String campaignTitle,
+                                     SchemaContextMode mode,
+                                     Map<String, DifficultyStats> statsMap,
+                                     List<QueryMetrics> allMetrics) {
         try {
             Path outputDir = Paths.get("target", "test-results", "query-evaluation");
             Files.createDirectories(outputDir);
 
             String currentRunId = runId != null ? runId : LocalDateTime.now().format(RUN_ID_FORMATTER);
-            String filePrefix = "evaluation-" + currentRunId + "-" + mode.name().toLowerCase(Locale.ROOT);
+            String filePrefix = reportPrefix + "-" + currentRunId + "-" + mode.name().toLowerCase(Locale.ROOT);
             Path csvPath = outputDir.resolve(filePrefix + "-metrics.csv");
             Path jsonPath = outputDir.resolve(filePrefix + "-summary.json");
 
             writeMetricsCsv(csvPath, allMetrics);
-            writeSummaryJson(jsonPath, mode, statsMap, allMetrics, currentRunId);
+            writeSummaryJson(jsonPath, reportPrefix, campaignTitle, mode, statsMap, allMetrics, currentRunId);
 
-            log.info("Wyniki ewaluacji [{}] zapisane do: {} i {}",
+            log.info("Wyniki ewaluacji [{} / {}] zapisane do: {} i {}",
+                    campaignTitle,
                     mode,
                     csvPath.toAbsolutePath(),
                     jsonPath.toAbsolutePath());
         } catch (IOException e) {
-            log.warn("Nie udalo sie zapisac wynikow ewaluacji [{}] do pliku.", mode, e);
+            log.warn("Nie udalo sie zapisac wynikow ewaluacji [{} / {}] do pliku.", campaignTitle, mode, e);
         }
     }
 
-    private void writeMetricsCsv(Path csvPath, List<QueryMetrics> allMetrics) throws IOException {
+    protected void writeMetricsCsv(Path csvPath, List<QueryMetrics> allMetrics) throws IOException {
         StringBuilder csv = new StringBuilder();
         csv.append("id,level,execution_accuracy,exact_match,table_recall,input_tokens,output_tokens,cost_usd,execution_time_ms,generated_sql,gold_sql")
                 .append(System.lineSeparator());
@@ -227,9 +244,9 @@ class QueryEvaluationIT {
         for (QueryMetrics metric : allMetrics) {
             csv.append(metric.getId()).append(',')
                     .append(escapeCsv(metric.getLevel())).append(',')
-                    .append(String.format(Locale.US, "%.4f", metric.getExecutionAccuracy())).append(',')
-                    .append(String.format(Locale.US, "%.4f", metric.getExactMatch())).append(',')
-                    .append(String.format(Locale.US, "%.4f", metric.getTableRecall())).append(',')
+                    .append(String.format(Locale.US, "%.2f", metric.getExecutionAccuracy())).append(',')
+                    .append(String.format(Locale.US, "%.2f", metric.getExactMatch())).append(',')
+                    .append(String.format(Locale.US, "%.2f", metric.getTableRecall())).append(',')
                     .append(metric.getInputTokens()).append(',')
                     .append(metric.getOutputTokens()).append(',')
                     .append(String.format(Locale.US, "%.6f", metric.getCost())).append(',')
@@ -242,11 +259,13 @@ class QueryEvaluationIT {
         Files.writeString(csvPath, csv.toString());
     }
 
-    private void writeSummaryJson(Path jsonPath,
-                                  SchemaContextMode mode,
-                                  Map<String, DifficultyStats> statsMap,
-                                  List<QueryMetrics> allMetrics,
-                                  String currentRunId) throws IOException {
+    protected void writeSummaryJson(Path jsonPath,
+                                    String reportPrefix,
+                                    String campaignTitle,
+                                    SchemaContextMode mode,
+                                    Map<String, DifficultyStats> statsMap,
+                                    List<QueryMetrics> allMetrics,
+                                    String currentRunId) throws IOException {
         DifficultyStats totalStats = new DifficultyStats();
         statsMap.values().forEach(stats -> {
             totalStats.total += stats.total;
@@ -261,48 +280,59 @@ class QueryEvaluationIT {
 
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("runId", currentRunId);
+        summary.put("reportPrefix", reportPrefix);
+        summary.put("campaignTitle", campaignTitle);
         summary.put("mode", mode.name());
         summary.put("queryCount", allMetrics.size());
+        summary.put("systemPrompt", resolvedSystemPrompt());
+        summary.put("model", resolvedModel());
         summary.put("levels", statsMap);
         summary.put("totals", totalStats);
 
         objectMapper.writerWithDefaultPrettyPrinter().writeValue(jsonPath.toFile(), summary);
     }
 
-    private String escapeCsv(String value) {
-        if (value == null) {
-            return "";
-        }
-        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
-            return '"' + value.replace("\"", "\"\"") + '"';
-        }
-        return value;
+    protected String resolvedSystemPrompt() {
+        return environment.getProperty("app.sql-generation.system-prompt", "prompts/openai/generate-sql-system-zero-shot.txt");
     }
 
-    @Data
-    static class TestCase {
-        private int id;
-        private String level;
-        private String question;
-        private String goldSql;
-        private List<String> requiredTables;
+    protected String resolvedModel() {
+        return environment.getProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini");
     }
 
-    private void performWarmUp() {
+    protected void performWarmUp() {
         log.info("Rozpoczynanie fazy rozgrzewki (warm-up) systemu...");
         try {
             QueryRequest warmUpRequest = QueryRequest.builder()
-                    .naturalLanguageQuery("Ilu jest lekarzy?") // Dowolne proste pytanie
+                    .naturalLanguageQuery(DEFAULT_WARM_UP_QUERY)
                     .explainSql(false)
                     .schemaContextMode(SchemaContextMode.RAG)
                     .build();
 
-            // Wykonujemy zapytanie, ale nie zapisujemy jego metryk do raportu
             queryExecutionService.executeQuery(warmUpRequest);
 
             log.info("Faza rozgrzewki zakończona pomyślnie. System gotowy do pomiarów.");
         } catch (Exception e) {
             log.warn("Ostrzeżenie: Błąd podczas rozgrzewki. Pierwsze wyniki czasowe mogą być zawyżone.", e);
         }
+    }
+
+    protected String escapeCsv(String value) {
+        if (value == null) {
+            return "";
+        }
+        if (value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r")) {
+            return '"' + value.replace("\"", "\"\"") + '"';
+        }
+        return value;
+    }
+
+    @Data
+    protected static class TestCase {
+        private int id;
+        private String level;
+        private String question;
+        private String goldSql;
+        private List<String> requiredTables;
     }
 }
