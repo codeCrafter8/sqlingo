@@ -89,6 +89,9 @@ public abstract class AbstractResearchEvaluationIT {
         System.out.println("=".repeat(120) + "\n");
 
         for (TestCase test : testCases) {
+            long startTime = System.currentTimeMillis();
+            QueryResponse response = null;
+
             try {
                 QueryRequest request = QueryRequest.builder()
                         .naturalLanguageQuery(test.getQuestion())
@@ -96,9 +99,17 @@ public abstract class AbstractResearchEvaluationIT {
                         .schemaContextMode(mode)
                         .build();
 
-                long startTime = System.currentTimeMillis();
-                QueryResponse response = queryExecutionService.executeQuery(request);
+                response = queryExecutionService.executeQuery(request);
                 long executionTime = System.currentTimeMillis() - startTime;
+
+                if (isFailureResponse(response)) {
+                    QueryMetrics metrics = buildFailureMetrics(test, response, executionTime,
+                            buildResponseFailure(response));
+                    allMetrics.add(metrics);
+                    statsMap.computeIfAbsent(test.getLevel(), level -> new DifficultyStats()).addMetrics(metrics);
+                    System.out.println(metrics);
+                    continue;
+                }
 
                 @SuppressWarnings("unchecked")
                 List<Map<String, Object>> generatedResults = (List<Map<String, Object>>) response.getResults();
@@ -110,11 +121,11 @@ public abstract class AbstractResearchEvaluationIT {
                         ? ResearchMetrics.calculateTableRecall(response.getSelectedTables(), test.getRequiredTables())
                         : 1.0;
 
-                int promptTokens = response.getPromptTokens() != null ? response.getPromptTokens() : 0;
-                int completionTokens = response.getCompletionTokens() != null ? response.getCompletionTokens() : 0;
+                int promptTokens = safeTokenCount(response.getPromptTokens());
+                int completionTokens = safeTokenCount(response.getCompletionTokens());
                 double cost = ResearchMetrics.calculateCost(promptTokens, completionTokens);
 
-                QueryMetrics metrics = new QueryMetrics(
+                QueryMetrics metrics = QueryMetrics.success(
                         test.getId(),
                         test.getLevel(),
                         executionAccuracy,
@@ -129,13 +140,33 @@ public abstract class AbstractResearchEvaluationIT {
                 );
 
                 allMetrics.add(metrics);
-                statsMap.get(test.getLevel()).addMetrics(metrics);
+                statsMap.computeIfAbsent(test.getLevel(), level -> new DifficultyStats()).addMetrics(metrics);
                 System.out.println(metrics);
 
             } catch (Exception e) {
+                long executionTime = System.currentTimeMillis() - startTime;
+                int promptTokens = response != null ? safeTokenCount(response.getPromptTokens()) : 0;
+                int completionTokens = response != null ? safeTokenCount(response.getCompletionTokens()) : 0;
+                double cost = ResearchMetrics.calculateCost(promptTokens, completionTokens);
+
+                QueryMetrics metrics = QueryMetrics.failure(
+                        test.getId(),
+                        test.getLevel(),
+                        promptTokens,
+                        completionTokens,
+                        cost,
+                        executionTime,
+                        test.getGoldSql(),
+                        response != null ? response.getGeneratedSql() : null,
+                        e
+                );
+
+                allMetrics.add(metrics);
+                statsMap.computeIfAbsent(test.getLevel(), level -> new DifficultyStats()).addMetrics(metrics);
                 log.error("Błąd podczas przetwarzania zapytania ID: {} [{}]", test.getId(), mode, e);
                 System.err.printf("ID: %d [%-6s] [%s] | BLAD: %s%n",
                         test.getId(), test.getLevel(), mode, e.getMessage());
+                System.out.println(metrics);
             }
         }
 
@@ -238,12 +269,13 @@ public abstract class AbstractResearchEvaluationIT {
 
     protected void writeMetricsCsv(Path csvPath, List<QueryMetrics> allMetrics) throws IOException {
         StringBuilder csv = new StringBuilder();
-        csv.append("id,level,execution_accuracy,exact_match,table_recall,input_tokens,output_tokens,cost_usd,execution_time_ms,generated_sql,gold_sql")
+        csv.append("id,level,status,execution_accuracy,exact_match,table_recall,input_tokens,output_tokens,cost_usd,execution_time_ms,generated_sql,gold_sql,error_type,error_message,error_details")
                 .append(System.lineSeparator());
 
         for (QueryMetrics metric : allMetrics) {
             csv.append(metric.getId()).append(',')
                     .append(escapeCsv(metric.getLevel())).append(',')
+                    .append(escapeCsv(metric.getStatus())).append(',')
                     .append(String.format(Locale.US, "%.2f", metric.getExecutionAccuracy())).append(',')
                     .append(String.format(Locale.US, "%.2f", metric.getExactMatch())).append(',')
                     .append(String.format(Locale.US, "%.2f", metric.getTableRecall())).append(',')
@@ -252,7 +284,10 @@ public abstract class AbstractResearchEvaluationIT {
                     .append(String.format(Locale.US, "%.6f", metric.getCost())).append(',')
                     .append(metric.getExecutionTimeMs()).append(',')
                     .append(escapeCsv(metric.getGeneratedSql())).append(',')
-                    .append(escapeCsv(metric.getGoldSql()))
+                    .append(escapeCsv(metric.getGoldSql())).append(',')
+                    .append(escapeCsv(metric.getErrorType())).append(',')
+                    .append(escapeCsv(metric.getErrorMessage())).append(',')
+                    .append(escapeCsv(metric.getErrorDetails()))
                     .append(System.lineSeparator());
         }
 
@@ -278,16 +313,23 @@ public abstract class AbstractResearchEvaluationIT {
             totalStats.totalTimeMs += stats.totalTimeMs;
         });
 
+        long successCount = allMetrics.stream().filter(metric -> !metric.isFailure()).count();
+        long failureCount = allMetrics.size() - successCount;
+
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("runId", currentRunId);
         summary.put("reportPrefix", reportPrefix);
         summary.put("campaignTitle", campaignTitle);
         summary.put("mode", mode.name());
         summary.put("queryCount", allMetrics.size());
+        summary.put("successCount", successCount);
+        summary.put("failureCount", failureCount);
         summary.put("systemPrompt", resolvedSystemPrompt());
         summary.put("model", resolvedModel());
         summary.put("levels", statsMap);
         summary.put("totals", totalStats);
+        summary.put("results", allMetrics);
+        summary.put("failedQueries", allMetrics.stream().filter(QueryMetrics::isFailure).toList());
 
         objectMapper.writerWithDefaultPrettyPrinter().writeValue(jsonPath.toFile(), summary);
     }
@@ -325,6 +367,41 @@ public abstract class AbstractResearchEvaluationIT {
             return '"' + value.replace("\"", "\"\"") + '"';
         }
         return value;
+    }
+
+    private boolean isFailureResponse(QueryResponse response) {
+        return response == null || response.getError() != null;
+    }
+
+    private Throwable buildResponseFailure(QueryResponse response) {
+        String errorMessage = response != null && response.getError() != null
+                ? response.getError()
+                : "Query execution failed";
+        return new IllegalStateException(errorMessage);
+    }
+
+    private QueryMetrics buildFailureMetrics(TestCase test,
+                                             QueryResponse response,
+                                             long executionTime,
+                                             Throwable error) {
+        int promptTokens = response != null ? safeTokenCount(response.getPromptTokens()) : 0;
+        int completionTokens = response != null ? safeTokenCount(response.getCompletionTokens()) : 0;
+        double cost = ResearchMetrics.calculateCost(promptTokens, completionTokens);
+        return QueryMetrics.failure(
+                test.getId(),
+                test.getLevel(),
+                promptTokens,
+                completionTokens,
+                cost,
+                executionTime,
+                test.getGoldSql(),
+                response != null ? response.getGeneratedSql() : null,
+                error
+        );
+    }
+
+    private int safeTokenCount(Integer value) {
+        return value != null ? value : 0;
     }
 
     @Data

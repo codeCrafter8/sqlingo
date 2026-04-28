@@ -3,6 +3,8 @@ package com.codecrafter8.nl2sql.metrics;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -117,6 +119,7 @@ public class ResearchMetrics {
     public static class QueryMetrics {
         public int id;                      // ID zapytania
         public String level;                // Poziom trudności (Easy/Medium/Hard)
+        public String status;               // SUCCESS / FAILURE
         public double executionAccuracy;    // EX: Dokładność wykonania (0.0-1.0)
         public double exactMatch;           // EM: Dokładne dopasowanie SQL (0.0-1.0)
         public double tableRecall;          // Recall tabel wybranych przez RAG (0.0-1.0)
@@ -126,12 +129,104 @@ public class ResearchMetrics {
         public long executionTimeMs;        // Czas wykonania w milisekundach
         public String generatedSql;         // SQL wygenerowany przez LLM
         public String goldSql;              // SQL referencyjny z pliku testowego
+        public String errorType;            // Typ błędu (np. IllegalStateException)
+        public String errorMessage;         // Krótka wiadomość błędu
+        public String errorDetails;         // Pełne szczegóły błędu / stack trace
+
+        public static QueryMetrics success(int id,
+                                           String level,
+                                           double executionAccuracy,
+                                           double exactMatch,
+                                           double tableRecall,
+                                           int inputTokens,
+                                           int outputTokens,
+                                           double cost,
+                                           long executionTimeMs,
+                                           String generatedSql,
+                                           String goldSql) {
+            return new QueryMetrics(
+                    id,
+                    level,
+                    "SUCCESS",
+                    executionAccuracy,
+                    exactMatch,
+                    tableRecall,
+                    inputTokens,
+                    outputTokens,
+                    cost,
+                    executionTimeMs,
+                    generatedSql,
+                    goldSql,
+                    null,
+                    null,
+                    null
+            );
+        }
+
+        public static QueryMetrics failure(int id,
+                                           String level,
+                                           long executionTimeMs,
+                                           String goldSql,
+                                           String generatedSql,
+                                           Throwable error) {
+            return failure(id, level, 0, 0, 0.0, executionTimeMs, goldSql, generatedSql, error);
+        }
+
+        public static QueryMetrics failure(int id,
+                                           String level,
+                                           int inputTokens,
+                                           int outputTokens,
+                                           double cost,
+                                           long executionTimeMs,
+                                           String goldSql,
+                                           String generatedSql,
+                                           Throwable error) {
+            return new QueryMetrics(
+                    id,
+                    level,
+                    "FAILURE",
+                    0.0,
+                    0.0,
+                    0.0,
+                    inputTokens,
+                    outputTokens,
+                    cost,
+                    executionTimeMs,
+                    generatedSql,
+                    goldSql,
+                    error == null ? null : error.getClass().getSimpleName(),
+                    error == null ? null : error.getMessage(),
+                    error == null ? null : stackTraceToString(error)
+            );
+        }
+
+        public boolean isFailure() {
+            return "FAILURE".equalsIgnoreCase(status);
+        }
+
+        private static String stackTraceToString(Throwable error) {
+            StringWriter stringWriter = new StringWriter();
+            error.printStackTrace(new PrintWriter(stringWriter));
+            return stringWriter.toString();
+        }
 
         @Override
         public String toString() {
+            if (isFailure()) {
+                return String.format(
+                        "ID:%d [%-10s] | %s | Error:%s - %s | Time:%dms",
+                        id,
+                        level,
+                        status,
+                        errorType,
+                        errorMessage,
+                        executionTimeMs
+                );
+            }
+
             return String.format(
-                    "ID:%d [%-10s] | EX:%.2f | EM:%.2f | TR:%.2f | In:%d Out:%d | Cost:$%.6f | Time:%dms",
-                    id, level, executionAccuracy, exactMatch, tableRecall,
+                    "ID:%d [%-10s] | %s | EX:%.2f | EM:%.2f | TR:%.2f | In:%d Out:%d | Cost:$%.6f | Time:%dms",
+                    id, level, status, executionAccuracy, exactMatch, tableRecall,
                     inputTokens, outputTokens, cost, executionTimeMs
             );
         }
