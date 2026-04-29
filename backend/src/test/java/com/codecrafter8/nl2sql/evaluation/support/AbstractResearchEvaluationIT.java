@@ -127,10 +127,13 @@ public abstract class AbstractResearchEvaluationIT {
 
                 QueryMetrics metrics = QueryMetrics.success(
                         test.getId(),
+                        test.getQuestion(),
                         test.getLevel(),
                         executionAccuracy,
                         exactMatch,
                         tableRecall,
+                        response.getSelectedTables(),
+                        test.getRequiredTables(),
                         promptTokens,
                         completionTokens,
                         cost,
@@ -151,6 +154,7 @@ public abstract class AbstractResearchEvaluationIT {
 
                 QueryMetrics metrics = QueryMetrics.failure(
                         test.getId(),
+                        test.getQuestion(),
                         test.getLevel(),
                         promptTokens,
                         completionTokens,
@@ -158,6 +162,8 @@ public abstract class AbstractResearchEvaluationIT {
                         executionTime,
                         test.getGoldSql(),
                         response != null ? response.getGeneratedSql() : null,
+                        response != null ? response.getSelectedTables() : List.of(),
+                        test.getRequiredTables(),
                         e
                 );
 
@@ -269,16 +275,19 @@ public abstract class AbstractResearchEvaluationIT {
 
     protected void writeMetricsCsv(Path csvPath, List<QueryMetrics> allMetrics) throws IOException {
         StringBuilder csv = new StringBuilder();
-        csv.append("id,level,status,execution_accuracy,exact_match,table_recall,input_tokens,output_tokens,cost_usd,execution_time_ms,generated_sql,gold_sql,error_type,error_message,error_details")
+        csv.append("id,question,level,status,execution_accuracy,exact_match,table_recall,selected_tables,required_tables,input_tokens,output_tokens,cost_usd,execution_time_ms,generated_sql,gold_sql,error_type,error_message,error_details")
                 .append(System.lineSeparator());
 
         for (QueryMetrics metric : allMetrics) {
             csv.append(metric.getId()).append(',')
+                    .append(escapeCsv(metric.getQuestion())).append(',')
                     .append(escapeCsv(metric.getLevel())).append(',')
                     .append(escapeCsv(metric.getStatus())).append(',')
                     .append(String.format(Locale.US, "%.2f", metric.getExecutionAccuracy())).append(',')
                     .append(String.format(Locale.US, "%.2f", metric.getExactMatch())).append(',')
                     .append(String.format(Locale.US, "%.2f", metric.getTableRecall())).append(',')
+                    .append(escapeCsv(joinTables(metric.getSelectedTables()))).append(',')
+                    .append(escapeCsv(joinTables(metric.getRequiredTables()))).append(',')
                     .append(metric.getInputTokens()).append(',')
                     .append(metric.getOutputTokens()).append(',')
                     .append(String.format(Locale.US, "%.6f", metric.getCost())).append(',')
@@ -287,7 +296,6 @@ public abstract class AbstractResearchEvaluationIT {
                     .append(escapeCsv(metric.getGoldSql())).append(',')
                     .append(escapeCsv(metric.getErrorType())).append(',')
                     .append(escapeCsv(metric.getErrorMessage())).append(',')
-                    .append(escapeCsv(metric.getErrorDetails()))
                     .append(System.lineSeparator());
         }
 
@@ -369,6 +377,13 @@ public abstract class AbstractResearchEvaluationIT {
         return value;
     }
 
+    protected String joinTables(List<String> tables) {
+        if (tables == null || tables.isEmpty()) {
+            return "";
+        }
+        return String.join("; ", tables);
+    }
+
     private boolean isFailureResponse(QueryResponse response) {
         return response == null || response.getError() != null;
     }
@@ -389,6 +404,7 @@ public abstract class AbstractResearchEvaluationIT {
         double cost = ResearchMetrics.calculateCost(promptTokens, completionTokens);
         return QueryMetrics.failure(
                 test.getId(),
+                test.getQuestion(),
                 test.getLevel(),
                 promptTokens,
                 completionTokens,
@@ -396,6 +412,8 @@ public abstract class AbstractResearchEvaluationIT {
                 executionTime,
                 test.getGoldSql(),
                 response != null ? response.getGeneratedSql() : null,
+                response != null ? response.getSelectedTables() : List.of(),
+                test.getRequiredTables(),
                 error
         );
     }

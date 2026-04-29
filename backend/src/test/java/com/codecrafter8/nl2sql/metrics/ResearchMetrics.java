@@ -118,11 +118,14 @@ public class ResearchMetrics {
     @AllArgsConstructor
     public static class QueryMetrics {
         public int id;                      // ID zapytania
+        public String question;             // Pytanie w języku naturalnym
         public String level;                // Poziom trudności (Easy/Medium/Hard)
         public String status;               // SUCCESS / FAILURE
         public double executionAccuracy;    // EX: Dokładność wykonania (0.0-1.0)
         public double exactMatch;           // EM: Dokładne dopasowanie SQL (0.0-1.0)
         public double tableRecall;          // Recall tabel wybranych przez RAG (0.0-1.0)
+        public List<String> selectedTables; // Tabele odnalezione przez RAG / użyte do kontekstu
+        public List<String> requiredTables; // Tabele, które powinny zostać odnalezione
         public int inputTokens;
         public int outputTokens;            // Liczba tokenów w odpowiedzi
         public double cost;                 // Szacunkowy koszt API w USD
@@ -131,13 +134,15 @@ public class ResearchMetrics {
         public String goldSql;              // SQL referencyjny z pliku testowego
         public String errorType;            // Typ błędu (np. IllegalStateException)
         public String errorMessage;         // Krótka wiadomość błędu
-        public String errorDetails;         // Pełne szczegóły błędu / stack trace
 
         public static QueryMetrics success(int id,
+                                           String question,
                                            String level,
                                            double executionAccuracy,
                                            double exactMatch,
                                            double tableRecall,
+                                           List<String> selectedTables,
+                                           List<String> requiredTables,
                                            int inputTokens,
                                            int outputTokens,
                                            double cost,
@@ -146,11 +151,14 @@ public class ResearchMetrics {
                                            String goldSql) {
             return new QueryMetrics(
                     id,
+                    question,
                     level,
                     "SUCCESS",
                     executionAccuracy,
                     exactMatch,
                     tableRecall,
+                    selectedTables,
+                    requiredTables,
                     inputTokens,
                     outputTokens,
                     cost,
@@ -158,21 +166,24 @@ public class ResearchMetrics {
                     generatedSql,
                     goldSql,
                     null,
-                    null,
                     null
             );
         }
 
         public static QueryMetrics failure(int id,
+                                           String question,
                                            String level,
                                            long executionTimeMs,
                                            String goldSql,
                                            String generatedSql,
+                                           List<String> selectedTables,
+                                           List<String> requiredTables,
                                            Throwable error) {
-            return failure(id, level, 0, 0, 0.0, executionTimeMs, goldSql, generatedSql, error);
+            return failure(id, question, level, 0, 0, 0.0, executionTimeMs, goldSql, generatedSql, selectedTables, requiredTables, error);
         }
 
         public static QueryMetrics failure(int id,
+                                           String question,
                                            String level,
                                            int inputTokens,
                                            int outputTokens,
@@ -180,14 +191,19 @@ public class ResearchMetrics {
                                            long executionTimeMs,
                                            String goldSql,
                                            String generatedSql,
+                                           List<String> selectedTables,
+                                           List<String> requiredTables,
                                            Throwable error) {
             return new QueryMetrics(
                     id,
+                    question,
                     level,
                     "FAILURE",
                     0.0,
                     0.0,
                     0.0,
+                    selectedTables,
+                    requiredTables,
                     inputTokens,
                     outputTokens,
                     cost,
@@ -195,8 +211,7 @@ public class ResearchMetrics {
                     generatedSql,
                     goldSql,
                     error == null ? null : error.getClass().getSimpleName(),
-                    error == null ? null : error.getMessage(),
-                    error == null ? null : stackTraceToString(error)
+                    error == null ? null : error.getMessage()
             );
         }
 
@@ -212,12 +227,17 @@ public class ResearchMetrics {
 
         @Override
         public String toString() {
+            String tablesInfo = String.format("Tables found:%s | Tables expected:%s",
+                    selectedTables,
+                    requiredTables);
+
             if (isFailure()) {
                 return String.format(
-                        "ID:%d [%-10s] | %s | Error:%s - %s | Time:%dms",
+                        "ID:%d [%-10s] | %s | %s | Error:%s - %s | Time:%dms",
                         id,
                         level,
                         status,
+                        tablesInfo,
                         errorType,
                         errorMessage,
                         executionTimeMs
@@ -225,8 +245,9 @@ public class ResearchMetrics {
             }
 
             return String.format(
-                    "ID:%d [%-10s] | %s | EX:%.2f | EM:%.2f | TR:%.2f | In:%d Out:%d | Cost:$%.6f | Time:%dms",
+                    "ID:%d [%-10s] | %s | EX:%.2f | EM:%.2f | TR:%.2f | %s | In:%d Out:%d | Cost:$%.6f | Time:%dms",
                     id, level, status, executionAccuracy, exactMatch, tableRecall,
+                    tablesInfo,
                     inputTokens, outputTokens, cost, executionTimeMs
             );
         }
