@@ -252,7 +252,7 @@ public abstract class AbstractResearchEvaluationIT {
                                      Map<String, DifficultyStats> statsMap,
                                      List<QueryMetrics> allMetrics) {
         try {
-            Path outputDir = Paths.get("target", "test-results", "query-evaluation");
+            Path outputDir = Paths.get("research_results");
             Files.createDirectories(outputDir);
 
             String currentRunId = runId != null ? runId : LocalDateTime.now().format(RUN_ID_FORMATTER);

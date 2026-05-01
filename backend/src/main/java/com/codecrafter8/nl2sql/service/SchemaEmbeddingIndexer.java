@@ -54,15 +54,14 @@ public class SchemaEmbeddingIndexer {
         for (String tableName : tableNames) {
             try {
                 TableSchemaDocument schemaDoc = buildTableSchemaDocument(tableName);
-                String embeddingText = schemaDoc.format();
+                String embeddingText = schemaDoc.toEmbeddingText();
 
                 String deterministicId = UUID.nameUUIDFromBytes(tableName.getBytes()).toString();
 
                 // Create Spring AI Document for vector store
                 Map<String, Object> metadata = new HashMap<>();
                 metadata.put("table_name", tableName);
-                metadata.put("column_count", schemaDoc.getColumns().size());
-                metadata.put("has_fk", !schemaDoc.getForeignKeys().isEmpty());
+                metadata.put("full_schema_prompt", schemaDoc.toPromptText());
 
                 Document doc = new Document(
                         deterministicId,

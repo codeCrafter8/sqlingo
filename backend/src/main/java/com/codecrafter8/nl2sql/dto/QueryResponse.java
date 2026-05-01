@@ -26,5 +26,5 @@ public class QueryResponse {
     private Integer promptTokens;
     private Integer completionTokens;
     private Integer totalTokens;
-    private List<String> selectedTables;  // Tabele wybrane przez RAG
+    private List<String> selectedTables;
 }

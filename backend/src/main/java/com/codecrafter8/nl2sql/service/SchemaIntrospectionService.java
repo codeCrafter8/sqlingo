@@ -50,7 +50,7 @@ public class SchemaIntrospectionService {
                     .foreignKeys(foreignKeys)
                     .build();
 
-            schemaContext.append(doc.format()).append("\n");
+            schemaContext.append(doc.toPromptText()).append("\n");
         }
 
         return schemaContext.toString();

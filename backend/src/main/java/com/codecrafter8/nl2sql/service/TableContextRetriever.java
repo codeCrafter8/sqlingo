@@ -101,7 +101,13 @@ public class TableContextRetriever {
         context.append("Schemat bazy danych (tabele istotne dla zapytania):\n\n");
 
         for (Document doc : documents) {
-            context.append(doc.getContent()).append("\n\n---\n\n");
+            String fullSchema = (String) doc.getMetadata().get("full_schema_prompt");
+
+            if (fullSchema != null) {
+                context.append(fullSchema).append("\n\n---\n\n");
+            } else {
+                context.append(doc.getContent()).append("\n\n---\n\n");
+            }
         }
 
         return context.toString();

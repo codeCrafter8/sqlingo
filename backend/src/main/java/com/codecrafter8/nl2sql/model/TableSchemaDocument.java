@@ -43,7 +43,7 @@ public class TableSchemaDocument {
      */
     private String description;
 
-    public String format() {
+    public String toEmbeddingText() {
         StringBuilder text = new StringBuilder();
 
         text.append("Tabela: ").append(tableName).append("\n");
@@ -51,6 +51,26 @@ public class TableSchemaDocument {
         if (description != null && !description.isEmpty()) {
             text.append("Opis: ").append(description).append("\n");
         }
+
+        if (columns != null && !columns.isEmpty()) {
+            text.append("Zawartość (kolumny): ")
+                    .append(String.join(", ", columns.keySet()))
+                    .append("\n");
+        }
+
+        return text.toString();
+    }
+
+    public String toPromptText() {
+        StringBuilder text = new StringBuilder();
+
+        text.append("Tabela: ").append(tableName).append("\n");
+
+        if (description != null && !description.isEmpty()) {
+            text.append("Opis: ").append(description).append("\n");
+        }
+
+        text.append("----------------------------------------\n");
 
         if (columns != null && !columns.isEmpty()) {
             text.append("Kolumny:\n");
