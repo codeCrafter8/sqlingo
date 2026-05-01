@@ -9,7 +9,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Represents a table schema document for embedding and retrieval
+ * Represents a table schema information for formatting and embedding.
+ * Used for both RAG (vector embeddings) and full schema context generation.
  */
 @Data
 @NoArgsConstructor
@@ -38,43 +39,38 @@ public class TableSchemaDocument {
     private Map<String, String> foreignKeys;
 
     /**
-     * Human-readable description for embedding
+     * Human-readable description for the table
      */
     private String description;
 
-    /**
-     * Generate a text representation suitable for embedding
-     */
-    public String toEmbeddingText() {
+    public String format() {
         StringBuilder text = new StringBuilder();
 
-        text.append("Table: ").append(tableName).append("\n");
+        text.append("Tabela: ").append(tableName).append("\n");
 
         if (description != null && !description.isEmpty()) {
-            text.append("Description: ").append(description).append("\n");
+            text.append("Opis: ").append(description).append("\n");
         }
 
-        text.append("Columns: ");
         if (columns != null && !columns.isEmpty()) {
-            text.append(String.join(", ", columns.keySet())).append("\n");
-
-            // Add column details
+            text.append("Kolumny:\n");
             columns.forEach((name, type) ->
                     text.append("  - ").append(name).append(": ").append(type).append("\n")
             );
         }
 
         if (primaryKeys != null && !primaryKeys.isEmpty()) {
-            text.append("Primary Keys: ").append(String.join(", ", primaryKeys)).append("\n");
+            text.append("Klucz główny: ").append(String.join(", ", primaryKeys)).append("\n");
         }
 
         if (foreignKeys != null && !foreignKeys.isEmpty()) {
-            text.append("Foreign Key Relationships: \n");
+            text.append("Klucze obce:\n");
             foreignKeys.forEach((fk, ref) ->
-                    text.append("  - ").append(fk).append(" references ").append(ref).append("\n")
+                    text.append("  - ").append(fk).append(" -> ").append(ref).append("\n")
             );
         }
 
         return text.toString();
     }
+
 }

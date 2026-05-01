@@ -1,5 +1,6 @@
 package com.codecrafter8.nl2sql.service;
 
+import com.codecrafter8.nl2sql.model.TableSchemaDocument;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,38 +34,23 @@ public class SchemaIntrospectionService {
         List<String> tables = getAllTables();
 
         StringBuilder schemaContext = new StringBuilder();
-        schemaContext.append("Database Schema (Spider Hospital Database):\n\n");
-        schemaContext.append("This is a hospital management database with information about physicians, patients, appointments, medications, and procedures.\n\n");
+        schemaContext.append("Schemat bazy danych:\n\n");
 
         for (String tableName : tables) {
-            schemaContext.append("TABLE: ").append(tableName).append("\n");
-            schemaContext.append("----------------------------------------\n");
-
-            // Add columns
             Map<String, String> columns = getTableSchema(tableName);
-            schemaContext.append("Columns:\n");
-            for (Map.Entry<String, String> column : columns.entrySet()) {
-                schemaContext.append("  - ").append(column.getKey())
-                        .append(": ").append(column.getValue()).append("\n");
-            }
-
-            // Add primary keys
+            String description = generateTableDescription(tableName, columns);
             List<String> primaryKeys = getPrimaryKeys(tableName);
-            if (!primaryKeys.isEmpty()) {
-                schemaContext.append("Primary Key: ").append(String.join(", ", primaryKeys)).append("\n");
-            }
-
-            // Add foreign keys
             Map<String, String> foreignKeys = getForeignKeys(tableName);
-            if (!foreignKeys.isEmpty()) {
-                schemaContext.append("Foreign Keys:\n");
-                for (Map.Entry<String, String> fk : foreignKeys.entrySet()) {
-                    schemaContext.append("  - ").append(fk.getKey())
-                            .append(" -> ").append(fk.getValue()).append("\n");
-                }
-            }
 
-            schemaContext.append("\n");
+            TableSchemaDocument doc = TableSchemaDocument.builder()
+                    .tableName(tableName)
+                    .columns(columns)
+                    .description(description)
+                    .primaryKeys(primaryKeys)
+                    .foreignKeys(foreignKeys)
+                    .build();
+
+            schemaContext.append(doc.format()).append("\n");
         }
 
         return schemaContext.toString();
@@ -167,6 +153,41 @@ public class SchemaIntrospectionService {
         }
 
         return foreignKeys;
+    }
+
+    /**
+     * Generate a human-readable description for the table
+     */
+    public String generateTableDescription(String tableName, Map<String, String> columns) {
+        return switch (tableName.toLowerCase()) {
+            case "physician" ->
+                    "Medical staff, physicians, doctors. Lekarze, doktorzy, personel medyczny, specjaliści.";
+            case "department" ->
+                    "Hospital departments, units. Oddziały szpitalne, jednostki organizacyjne, kierownictwo (Head).";
+            case "affiliated_with" ->
+                    "Physician-department affiliations. Przynależność lekarzy do oddziałów, gdzie pracują lekarze.";
+            case "procedures" ->
+                    "Medical procedures, treatments, operations. Zabiegi medyczne, operacje, procedury, koszty (Cost).";
+            case "trained_in" ->
+                    "Physician certifications for procedures. Szkolenia lekarzy, uprawnienia do zabiegów, certyfikaty.";
+            case "patient" ->
+                    "Patient records, demographics. Pacjenci, dane chorych, rekordy medyczne, lekarz prowadzący (PCP).";
+            case "nurse" ->
+                    "Nurses, nursing staff. Pielęgniarki, pielęgniarze, personel pomocniczy, uprawnienia (Registered).";
+            case "appointment" ->
+                    "Scheduled visits, medical appointments. Wizyty lekarskie, spotkania, terminy, gabinety (ExaminationRoom).";
+            case "medication" -> "Available drugs, medications. Leki, lekarstwa, farmaceutyki, marki (Brand).";
+            case "prescribes" -> "Prescriptions, medication orders. Recepty, przepisywanie leków, dawkowanie (Dose).";
+            case "block" -> "Hospital blocks and floors. Bloki szpitalne, piętra, kondygnacje.";
+            case "room" ->
+                    "Hospital rooms, patient rooms. Pokoje, sale chorych, dostępność (Unavailable), typy sal (RoomType).";
+            case "on_call" -> "Nurse shift schedules, on-call duties. Dyżury pielęgniarskie, grafik pielęgniarek.";
+            case "stay" -> "Patient hospital stays, admissions. Pobyt w szpitalu, hospitalizacja, okres pobytu.";
+            case "undergoes" ->
+                    "Historical records of procedures performed on patients. Historia leczenia, wykonane zabiegi, operacje pacjentów.";
+            default -> String.format("Table %s containing columns: %s. Tabela %s zawiera kolumny: %s",
+                    tableName, String.join(", ", columns.keySet()), tableName, String.join(", ", columns.keySet()));
+        };
     }
 
 }

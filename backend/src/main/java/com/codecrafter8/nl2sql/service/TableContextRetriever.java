@@ -72,7 +72,7 @@ public class TableContextRetriever {
                 }
 
                 log.warn("Fallback disabled - returning empty context");
-                return new SchemaContextResult("No relevant tables found for this query.", List.of());
+                return new SchemaContextResult("Brak pasujących tabel.", List.of());
             }
 
             // Extract table names from documents
@@ -85,7 +85,7 @@ public class TableContextRetriever {
             log.info("Retrieved {} relevant tables: {}", relevantTables.size(), relevantTables);
 
             // Build focused schema context
-            return new SchemaContextResult(buildFocusedSchemaContext(relevantTables, relevantDocs), relevantTables);
+            return new SchemaContextResult(buildFocusedSchemaContext(relevantDocs), relevantTables);
 
         } catch (Exception e) {
             log.error("Error during RAG retrieval, falling back to full schema", e);
@@ -96,28 +96,13 @@ public class TableContextRetriever {
     /**
      * Build a focused schema context containing only the specified tables
      */
-    private String buildFocusedSchemaContext(List<String> tableNames, List<Document> documents) {
+    private String buildFocusedSchemaContext(List<Document> documents) {
         StringBuilder context = new StringBuilder();
+        context.append("Schemat bazy danych (tabele istotne dla zapytania):\n\n");
 
-        context.append("Database Schema (Spider Hospital Database - Focused Context):\n\n");
-        context.append("This is a hospital management database. ");
-        context.append("The following tables are most relevant to your query:\n\n");
-
-        // Add each relevant table's full schema
-        for (int i = 0; i < tableNames.size(); i++) {
-            Document doc = documents.get(i);
-
-            // Add relevance indicator
-            //todo: think of it
-            context.append(String.format("[Relevance Rank: %d]\n", i + 1));
-
-            // Add the embedded text (contains full table info)
-            context.append(doc.getContent());
-            context.append("\n");
+        for (Document doc : documents) {
+            context.append(doc.getContent()).append("\n\n---\n\n");
         }
-
-        context.append("\n");
-        context.append("Note: Focus your SQL query on these tables as they are most relevant to the user's question.\n");
 
         return context.toString();
     }

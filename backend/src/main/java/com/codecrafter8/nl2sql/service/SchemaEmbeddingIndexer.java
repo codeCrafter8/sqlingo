@@ -54,7 +54,7 @@ public class SchemaEmbeddingIndexer {
         for (String tableName : tableNames) {
             try {
                 TableSchemaDocument schemaDoc = buildTableSchemaDocument(tableName);
-                String embeddingText = schemaDoc.toEmbeddingText();
+                String embeddingText = schemaDoc.format();
 
                 String deterministicId = UUID.nameUUIDFromBytes(tableName.getBytes()).toString();
 
@@ -106,7 +106,7 @@ public class SchemaEmbeddingIndexer {
         Map<String, String> columns = schemaIntrospectionService.getTableSchema(tableName);
         List<String> primaryKeys = schemaIntrospectionService.getPrimaryKeys(tableName);
         Map<String, String> foreignKeys = schemaIntrospectionService.getForeignKeys(tableName);
-        String description = generateTableDescription(tableName, columns);
+        String description = schemaIntrospectionService.generateTableDescription(tableName, columns);
 
         return TableSchemaDocument.builder()
                 .tableName(tableName)
@@ -115,25 +115,6 @@ public class SchemaEmbeddingIndexer {
                 .foreignKeys(foreignKeys)
                 .description(description)
                 .build();
-    }
-
-    /**
-     * Generate a human-readable description for the table
-     */
-    private String generateTableDescription(String tableName, Map<String, String> columns) {
-        // Hospital database specific descriptions
-        return switch (tableName.toLowerCase()) {
-            case "physician" -> "Medical staff information including physicians and their specialties";
-            case "patient" -> "Patient records with demographics and medical history";
-            case "appointment" -> "Scheduled appointments between physicians and patients";
-            case "medication" -> "Prescribed medications for patients";
-            case "prescribes" -> "Prescription relationships between physicians and medications for patients";
-            case "procedures" -> "Medical procedures that can be performed";
-            case "trained_in" -> "Training certifications for physicians in specific procedures";
-            case "undergoes" -> "Records of procedures performed on patients";
-            default -> String.format("Table containing data about %s with %d columns",
-                    tableName.replace("_", " "), columns.size());
-        };
     }
 
 }
