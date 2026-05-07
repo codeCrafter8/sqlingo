@@ -219,6 +219,14 @@ public class ResearchMetrics {
             return "FAILURE".equalsIgnoreCase(status);
         }
 
+        public double getExecutionAccuracyPercent() {
+            return executionAccuracy * 100;
+        }
+
+        public double getExactMatchPercent() {
+            return exactMatch * 100;
+        }
+
         private static String stackTraceToString(Throwable error) {
             StringWriter stringWriter = new StringWriter();
             error.printStackTrace(new PrintWriter(stringWriter));
@@ -245,8 +253,8 @@ public class ResearchMetrics {
             }
 
             return String.format(
-                    "ID:%d [%-10s] | %s | EX:%.2f | EM:%.2f | TR:%.2f | %s | In:%d Out:%d | Cost:$%.6f | Time:%dms",
-                    id, level, status, executionAccuracy, exactMatch, tableRecall,
+                    "ID:%d [%-10s] | %s | EX:%.2f%% | EM:%.2f%% | TR:%.2f | %s | In:%d Out:%d | Cost:$%.6f | Time:%dms",
+                    id, level, status, getExecutionAccuracyPercent(), getExactMatchPercent(), tableRecall,
                     tablesInfo,
                     inputTokens, outputTokens, cost, executionTimeMs
             );

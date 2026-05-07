@@ -275,7 +275,7 @@ public abstract class AbstractResearchEvaluationIT {
 
     protected void writeMetricsCsv(Path csvPath, List<QueryMetrics> allMetrics) throws IOException {
         StringBuilder csv = new StringBuilder();
-        csv.append("id,question,level,status,execution_accuracy,exact_match,table_recall,selected_tables,required_tables,input_tokens,output_tokens,cost_usd,execution_time_ms,generated_sql,gold_sql,error_type,error_message,error_details")
+        csv.append("id,question,level,status,execution_accuracy,execution_accuracy_pct,exact_match,exact_match_pct,table_recall,selected_tables,required_tables,input_tokens,output_tokens,cost_usd,execution_time_ms,generated_sql,gold_sql,error_type,error_message,error_details")
                 .append(System.lineSeparator());
 
         for (QueryMetrics metric : allMetrics) {
@@ -284,7 +284,9 @@ public abstract class AbstractResearchEvaluationIT {
                     .append(escapeCsv(metric.getLevel())).append(',')
                     .append(escapeCsv(metric.getStatus())).append(',')
                     .append(String.format(Locale.US, "%.2f", metric.getExecutionAccuracy())).append(',')
+                    .append(String.format(Locale.US, "%.2f", metric.getExecutionAccuracyPercent())).append(',')
                     .append(String.format(Locale.US, "%.2f", metric.getExactMatch())).append(',')
+                    .append(String.format(Locale.US, "%.2f", metric.getExactMatchPercent())).append(',')
                     .append(String.format(Locale.US, "%.2f", metric.getTableRecall())).append(',')
                     .append(escapeCsv(joinTables(metric.getSelectedTables()))).append(',')
                     .append(escapeCsv(joinTables(metric.getRequiredTables()))).append(',')
@@ -324,6 +326,25 @@ public abstract class AbstractResearchEvaluationIT {
         long successCount = allMetrics.stream().filter(metric -> !metric.isFailure()).count();
         long failureCount = allMetrics.size() - successCount;
 
+        Map<String, Object> totalsSummary = new LinkedHashMap<>();
+        totalsSummary.put("total", totalStats.total);
+        totalsSummary.put("correctEx", totalStats.correctEx);
+        totalsSummary.put("correctEm", totalStats.correctEm);
+        totalsSummary.put("totalTableRecall", totalStats.totalTableRecall);
+        totalsSummary.put("totalInputTokens", totalStats.totalInputTokens);
+        totalsSummary.put("totalOutputTokens", totalStats.totalOutputTokens);
+        totalsSummary.put("totalCost", totalStats.totalCost);
+        totalsSummary.put("totalTimeMs", totalStats.totalTimeMs);
+        totalsSummary.put("averageTableRecall", totalStats.getAverageTableRecall());
+        totalsSummary.put("accuracyEx", totalStats.getAccuracyEx());
+        totalsSummary.put("accuracyExPercent", totalStats.getAccuracyEx());
+        totalsSummary.put("accuracyEm", totalStats.getAccuracyEm());
+        totalsSummary.put("accuracyEmPercent", totalStats.getAccuracyEm());
+        totalsSummary.put("averageCost", totalStats.getAverageCost());
+        totalsSummary.put("averageTimeMs", totalStats.getAverageTimeMs());
+        totalsSummary.put("avgInputTokens", totalStats.getAvgInputTokens());
+        totalsSummary.put("avgOutputTokens", totalStats.getAvgOutputTokens());
+
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("runId", currentRunId);
         summary.put("reportPrefix", reportPrefix);
@@ -335,7 +356,7 @@ public abstract class AbstractResearchEvaluationIT {
         summary.put("systemPrompt", resolvedSystemPrompt());
         summary.put("model", resolvedModel());
         summary.put("levels", statsMap);
-        summary.put("totals", totalStats);
+        summary.put("totals", totalsSummary);
         summary.put("results", allMetrics);
         summary.put("failedQueries", allMetrics.stream().filter(QueryMetrics::isFailure).toList());
 

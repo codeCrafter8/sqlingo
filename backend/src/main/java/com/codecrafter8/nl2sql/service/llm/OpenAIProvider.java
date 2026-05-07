@@ -23,6 +23,50 @@ public class OpenAIProvider implements LLMProvider {
     @Value("${app.sql-generation.system-prompt:prompts/openai/generate-sql-system-zero-shot.txt}")
     private String generateSqlSystemPrompt;
 
+    /**
+     * Extracts SQL from model response that may contain "Analiza:" and "SQL:" sections.
+     * If response contains both sections, returns only the SQL part.
+     * Otherwise, returns the entire response.
+     *
+     * @param response The full response from the model
+     * @return The extracted SQL query
+     */
+    private String extractSqlFromResponse(String response) {
+        if (response == null || response.isBlank()) {
+            return response;
+        }
+
+        // Check if response contains SQL: section
+        int sqlIndex = response.indexOf("SQL:");
+        if (sqlIndex != -1) {
+            // Extract content after "SQL:" and clean it
+            String sqlContent = response.substring(sqlIndex + 4).trim();
+
+            // Remove any remaining markdown code block markers if present
+            sqlContent = sqlContent.replace("```sql", "").replace("```", "").trim();
+
+            log.debug("Extracted SQL from model response with Analysis and SQL sections");
+            return sqlContent;
+        }
+
+        // If no "SQL:" section found, check if there's "Analiza:" section
+        int analysisIndex = response.indexOf("Analiza:");
+        if (analysisIndex != -1) {
+            // Find the content between "Analiza:" and "SQL:" if exists
+            int nextSectionIndex = response.indexOf("\n\n", analysisIndex);
+            if (nextSectionIndex != -1) {
+                // Return content after the next section
+                String remaining = response.substring(nextSectionIndex).trim();
+                if (!remaining.isEmpty()) {
+                    return remaining;
+                }
+            }
+        }
+
+        // Return original response if no special sections found
+        return response;
+    }
+
     @Override
     public LlmResponse generateSQL(String naturalLanguageQuery, String schemaContext) throws LLMException {
         log.debug("Generating SQL from natural language using OpenAI");
@@ -37,9 +81,11 @@ public class OpenAIProvider implements LLMProvider {
                     .chatResponse();
 
             var usage = response.getMetadata().getUsage();
+            String rawContent = response.getResult().getOutput().getContent();
+            String extractedSql = extractSqlFromResponse(rawContent);
 
             return LlmResponse.builder()
-                    .sql(response.getResult().getOutput().getContent())
+                    .sql(extractedSql)
                     .promptTokens(usage.getPromptTokens() != null ? usage.getPromptTokens().intValue() : 0)
                     .completionTokens(usage.getGenerationTokens() != null ? usage.getGenerationTokens().intValue() : 0)
                     .build();
