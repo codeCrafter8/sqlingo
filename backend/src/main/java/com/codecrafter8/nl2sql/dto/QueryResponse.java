@@ -18,6 +18,7 @@ public class QueryResponse {
     private String naturalLanguageQuery;
     private String generatedSql;
     private String sqlExplanation;
+    private String analysis;
     private Object results;
     private int rowCount;
     private Long executionTimeMs;

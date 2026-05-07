@@ -139,6 +139,7 @@ public abstract class AbstractResearchEvaluationIT {
                         cost,
                         executionTime,
                         response.getGeneratedSql(),
+                        response.getAnalysis(),
                         test.getGoldSql()
                 );
 
@@ -162,6 +163,7 @@ public abstract class AbstractResearchEvaluationIT {
                         executionTime,
                         test.getGoldSql(),
                         response != null ? response.getGeneratedSql() : null,
+                        response != null ? response.getAnalysis() : null,
                         response != null ? response.getSelectedTables() : List.of(),
                         test.getRequiredTables(),
                         e
@@ -275,7 +277,7 @@ public abstract class AbstractResearchEvaluationIT {
 
     protected void writeMetricsCsv(Path csvPath, List<QueryMetrics> allMetrics) throws IOException {
         StringBuilder csv = new StringBuilder();
-        csv.append("id,question,level,status,execution_accuracy,execution_accuracy_pct,exact_match,exact_match_pct,table_recall,selected_tables,required_tables,input_tokens,output_tokens,cost_usd,execution_time_ms,generated_sql,gold_sql,error_type,error_message,error_details")
+        csv.append("id,question,level,status,execution_accuracy,execution_accuracy_pct,exact_match,exact_match_pct,table_recall,selected_tables,required_tables,input_tokens,output_tokens,cost_usd,execution_time_ms,generated_sql,analysis,gold_sql,error_type,error_message,error_details")
                 .append(System.lineSeparator());
 
         for (QueryMetrics metric : allMetrics) {
@@ -295,6 +297,7 @@ public abstract class AbstractResearchEvaluationIT {
                     .append(String.format(Locale.US, "%.6f", metric.getCost())).append(',')
                     .append(metric.getExecutionTimeMs()).append(',')
                     .append(escapeCsv(metric.getGeneratedSql())).append(',')
+                    .append(escapeCsv(metric.getAnalysis())).append(',')
                     .append(escapeCsv(metric.getGoldSql())).append(',')
                     .append(escapeCsv(metric.getErrorType())).append(',')
                     .append(escapeCsv(metric.getErrorMessage())).append(',')
@@ -433,6 +436,7 @@ public abstract class AbstractResearchEvaluationIT {
                 executionTime,
                 test.getGoldSql(),
                 response != null ? response.getGeneratedSql() : null,
+                response != null ? response.getAnalysis() : null,
                 response != null ? response.getSelectedTables() : List.of(),
                 test.getRequiredTables(),
                 error

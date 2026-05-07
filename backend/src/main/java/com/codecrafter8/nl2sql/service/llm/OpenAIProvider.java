@@ -36,35 +36,110 @@ public class OpenAIProvider implements LLMProvider {
             return response;
         }
 
-        // Check if response contains SQL: section
-        int sqlIndex = response.indexOf("SQL:");
+        String lower = response.toLowerCase();
+
+        // Find SQL: marker case-insensitive
+        int sqlIndex = indexOfIgnoreCase(response, "SQL:");
         if (sqlIndex != -1) {
-            // Extract content after "SQL:" and clean it
             String sqlContent = response.substring(sqlIndex + 4).trim();
-
-            // Remove any remaining markdown code block markers if present
+            // Remove markdown fences
             sqlContent = sqlContent.replace("```sql", "").replace("```", "").trim();
-
             log.debug("Extracted SQL from model response with Analysis and SQL sections");
             return sqlContent;
         }
 
-        // If no "SQL:" section found, check if there's "Analiza:" section
-        int analysisIndex = response.indexOf("Analiza:");
+        // No explicit SQL: section. If there is an Analiza/Analysis section followed by blank line + SQL, try to skip analysis.
+        int analysisIndex = indexOfIgnoreCase(response, "Analiza:");
+        if (analysisIndex == -1) {
+            analysisIndex = indexOfIgnoreCase(response, "Analysis:");
+        }
         if (analysisIndex != -1) {
-            // Find the content between "Analiza:" and "SQL:" if exists
+            // Try to find the next double newline which might separate analysis and SQL
             int nextSectionIndex = response.indexOf("\n\n", analysisIndex);
             if (nextSectionIndex != -1) {
-                // Return content after the next section
                 String remaining = response.substring(nextSectionIndex).trim();
                 if (!remaining.isEmpty()) {
+                    // Clean up code fences if any
+                    remaining = remaining.replace("```sql", "").replace("```", "").trim();
                     return remaining;
                 }
             }
         }
 
-        // Return original response if no special sections found
-        return response;
+        // If nothing matched, return original response
+        return response.trim();
+    }
+
+    private int indexOfIgnoreCase(String text, String search) {
+        if (text == null || search == null) return -1;
+        return text.toLowerCase().indexOf(search.toLowerCase());
+    }
+
+    /**
+     * Extract analysis (explanation) part from the model response, if present.
+     * Supports Polish "Analiza:" and English "Analysis:" headers and attempts
+     * to return text up to the next section (e.g. "SQL:") or a blank line.
+     *
+     * @param response Full model response
+     * @return Extracted analysis or null when not found
+     */
+    private String extractAnalysisFromResponse(String response) {
+        if (response == null || response.isBlank()) {
+            return null;
+        }
+
+        String lower = response.toLowerCase();
+        int analysisIndex = -1;
+        String foundHeader = null;
+
+        if ((analysisIndex = lower.indexOf("analiza:")) != -1) {
+            foundHeader = "Analiza:";
+        } else if ((analysisIndex = lower.indexOf("analysis:")) != -1) {
+            foundHeader = "Analysis:";
+        }
+
+        if (analysisIndex != -1) {
+            int start = analysisIndex + (foundHeader != null ? foundHeader.length() : 0);
+            // Find next section header SQL: or double newline
+            int sqlIndex = indexOfIgnoreCase(response.substring(start), "SQL:");
+            int doubleNewline = response.indexOf("\n\n", start);
+
+            int end = -1;
+            if (sqlIndex != -1) {
+                end = start + sqlIndex;
+            } else if (doubleNewline != -1) {
+                end = doubleNewline;
+            }
+
+            String analysis;
+            if (end != -1) {
+                analysis = response.substring(start, end).trim();
+            } else {
+                analysis = response.substring(start).trim();
+            }
+
+            if (analysis.isBlank()) {
+                return null;
+            }
+
+            // Remove code fences if any
+            analysis = analysis.replace("```", "").replace("```sql", "").trim();
+            return analysis;
+        }
+
+        // If no explicit header, but response contains SQL: assume text before SQL: is analysis
+        int sqlIndex = indexOfIgnoreCase(response, "SQL:");
+        if (sqlIndex != -1) {
+            String before = response.substring(0, sqlIndex).trim();
+            // Heuristic: if 'before' is longer than a short phrase, treat it as analysis
+            if (before.length() > 20) {
+                before = before.replace("```", "").replace("```sql", "").trim();
+                return before;
+            }
+        }
+
+        // Nothing found
+        return null;
     }
 
     @Override
@@ -82,12 +157,15 @@ public class OpenAIProvider implements LLMProvider {
 
             var usage = response.getMetadata().getUsage();
             String rawContent = response.getResult().getOutput().getContent();
+
+            String extractedAnalysis = extractAnalysisFromResponse(rawContent);
             String extractedSql = extractSqlFromResponse(rawContent);
 
             return LlmResponse.builder()
                     .sql(extractedSql)
                     .promptTokens(usage.getPromptTokens() != null ? usage.getPromptTokens().intValue() : 0)
                     .completionTokens(usage.getGenerationTokens() != null ? usage.getGenerationTokens().intValue() : 0)
+                    .analysis(extractedAnalysis)
                     .build();
 
         } catch (Exception e) {

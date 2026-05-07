@@ -64,6 +64,7 @@ public class QueryExecutionService {
             queryLog.setGeneratedSql(initialSql);
             queryLog.setPromptTokens(llmResponse.promptTokens());
             queryLog.setCompletionTokens(llmResponse.completionTokens());
+            queryLog.setAnalysis(llmResponse.analysis());
 
             validateSqlOrThrow(initialSql);
 
@@ -113,6 +114,17 @@ public class QueryExecutionService {
             queryLog.setCompletionTokens(queryLog.getCompletionTokens() + correctionResponse.completionTokens());
             queryLog.setGeneratedSql(correctedSql);
 
+            // Merge analysis: prefer appending correction analysis to original if both present
+            String originalAnalysis = queryLog.getAnalysis();
+            String correctionAnalysis = correctionResponse.analysis();
+            if (correctionAnalysis != null && !correctionAnalysis.isBlank()) {
+                if (originalAnalysis != null && !originalAnalysis.isBlank()) {
+                    queryLog.setAnalysis(originalAnalysis + "\n\n[Correction]\n" + correctionAnalysis);
+                } else {
+                    queryLog.setAnalysis(correctionAnalysis);
+                }
+            }
+
             validateSqlOrThrow(correctedSql);
 
             return sqlExecutionService.executeQuery(correctedSql);
@@ -148,6 +160,7 @@ public class QueryExecutionService {
                 .naturalLanguageQuery(queryLog.getNaturalLanguageQuery())
                 .generatedSql(queryLog.getGeneratedSql())
                 .sqlExplanation(explanation)
+                .analysis(queryLog.getAnalysis())
                 .results(results)
                 .rowCount(results != null ? results.size() : 0)
                 .status(queryLog.getStatus().toString())

@@ -6,5 +6,6 @@ import lombok.Builder;
 public record LlmResponse(
         String sql,
         int promptTokens,
-        int completionTokens) {
+        int completionTokens,
+        String analysis) {
 }

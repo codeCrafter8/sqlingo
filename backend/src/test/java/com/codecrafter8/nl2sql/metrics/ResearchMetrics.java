@@ -131,6 +131,7 @@ public class ResearchMetrics {
         public double cost;                 // Szacunkowy koszt API w USD
         public long executionTimeMs;        // Czas wykonania w milisekundach
         public String generatedSql;         // SQL wygenerowany przez LLM
+        public String analysis;             // Analiza / wyjaśnienie wygenerowane przez model
         public String goldSql;              // SQL referencyjny z pliku testowego
         public String errorType;            // Typ błędu (np. IllegalStateException)
         public String errorMessage;         // Krótka wiadomość błędu
@@ -148,6 +149,7 @@ public class ResearchMetrics {
                                            double cost,
                                            long executionTimeMs,
                                            String generatedSql,
+                                           String analysis,
                                            String goldSql) {
             return new QueryMetrics(
                     id,
@@ -164,6 +166,7 @@ public class ResearchMetrics {
                     cost,
                     executionTimeMs,
                     generatedSql,
+                    analysis,
                     goldSql,
                     null,
                     null
@@ -176,10 +179,11 @@ public class ResearchMetrics {
                                            long executionTimeMs,
                                            String goldSql,
                                            String generatedSql,
+                                           String analysis,
                                            List<String> selectedTables,
                                            List<String> requiredTables,
                                            Throwable error) {
-            return failure(id, question, level, 0, 0, 0.0, executionTimeMs, goldSql, generatedSql, selectedTables, requiredTables, error);
+            return failure(id, question, level, 0, 0, 0.0, executionTimeMs, goldSql, generatedSql, analysis, selectedTables, requiredTables, error);
         }
 
         public static QueryMetrics failure(int id,
@@ -191,6 +195,7 @@ public class ResearchMetrics {
                                            long executionTimeMs,
                                            String goldSql,
                                            String generatedSql,
+                                           String analysis,
                                            List<String> selectedTables,
                                            List<String> requiredTables,
                                            Throwable error) {
@@ -209,6 +214,7 @@ public class ResearchMetrics {
                     cost,
                     executionTimeMs,
                     generatedSql,
+                    analysis,
                     goldSql,
                     error == null ? null : error.getClass().getSimpleName(),
                     error == null ? null : error.getMessage()

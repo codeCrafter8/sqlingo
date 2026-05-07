@@ -31,6 +31,9 @@ public class QueryLog {
     @Column(columnDefinition = "TEXT")
     private String error;
 
+    @Column(columnDefinition = "TEXT")
+    private String analysis;
+
     @Enumerated(EnumType.STRING)
     private QueryStatus status;
 
