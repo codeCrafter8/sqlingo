@@ -181,6 +181,10 @@ public class QueryExecutionService {
                 .status(queryLog.getStatus().toString())
                 .error(queryLog.getError())
                 .executionTimeMs(queryLog.getExecutionTimeMs())
+                .promptTokens(queryLog.getPromptTokens())
+                .completionTokens(queryLog.getCompletionTokens())
+                .totalTokens(queryLog.getPromptTokens() != null && queryLog.getCompletionTokens() != null ?
+                        queryLog.getPromptTokens() + queryLog.getCompletionTokens() : 0)
                 .selectedTables(selectedTables)
                 .build();
     }

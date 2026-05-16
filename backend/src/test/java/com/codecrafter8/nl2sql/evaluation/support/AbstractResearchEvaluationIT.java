@@ -48,6 +48,9 @@ public abstract class AbstractResearchEvaluationIT {
     @Value("classpath:spider-hospital-pl.json")
     protected Resource testDataResource;
 
+    @Value("${app.llm.query.delay-ms:8000}")
+    private long llmQueryDelayMs;
+
     protected void runCampaign(String reportPrefix, String campaignTitle, List<SchemaContextMode> modes) throws IOException {
         runId = LocalDateTime.now().format(RUN_ID_FORMATTER);
 
@@ -108,6 +111,15 @@ public abstract class AbstractResearchEvaluationIT {
                     allMetrics.add(metrics);
                     statsMap.computeIfAbsent(test.getLevel(), level -> new DifficultyStats()).addMetrics(metrics);
                     System.out.println(metrics);
+                    // Po nieudanej próbie odczekaj przed kolejnym zapytaniem, aby zmniejszyć ryzyko przekroczenia limitów
+                    if (llmQueryDelayMs > 0) {
+                        try {
+                            Thread.sleep(llmQueryDelayMs);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            log.warn("Interrupted while waiting between LLM queries", ie);
+                        }
+                    }
                     continue;
                 }
 
@@ -146,6 +158,14 @@ public abstract class AbstractResearchEvaluationIT {
                 allMetrics.add(metrics);
                 statsMap.computeIfAbsent(test.getLevel(), level -> new DifficultyStats()).addMetrics(metrics);
                 System.out.println(metrics);
+                if (llmQueryDelayMs > 0) {
+                    try {
+                        Thread.sleep(llmQueryDelayMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        log.warn("Interrupted while waiting between LLM queries", ie);
+                    }
+                }
 
             } catch (Exception e) {
                 long executionTime = System.currentTimeMillis() - startTime;
@@ -175,6 +195,14 @@ public abstract class AbstractResearchEvaluationIT {
                 System.err.printf("ID: %d [%-6s] [%s] | BLAD: %s%n",
                         test.getId(), test.getLevel(), mode, e.getMessage());
                 System.out.println(metrics);
+                if (llmQueryDelayMs > 0) {
+                    try {
+                        Thread.sleep(llmQueryDelayMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        log.warn("Interrupted while waiting between LLM queries", ie);
+                    }
+                }
             }
         }
 
@@ -329,6 +357,9 @@ public abstract class AbstractResearchEvaluationIT {
         long successCount = allMetrics.stream().filter(metric -> !metric.isFailure()).count();
         long failureCount = allMetrics.size() - successCount;
 
+        // Obliczanie łącznego kosztu ze wszystkich metryk (zarówno sukcesów jak i błędów)
+        double totalCostActual = allMetrics.stream().mapToDouble(m -> m.cost).sum();
+
         Map<String, Object> totalsSummary = new LinkedHashMap<>();
         totalsSummary.put("total", totalStats.total);
         totalsSummary.put("correctEx", totalStats.correctEx);
@@ -336,7 +367,7 @@ public abstract class AbstractResearchEvaluationIT {
         totalsSummary.put("totalTableRecall", totalStats.totalTableRecall);
         totalsSummary.put("totalInputTokens", totalStats.totalInputTokens);
         totalsSummary.put("totalOutputTokens", totalStats.totalOutputTokens);
-        totalsSummary.put("totalCost", totalStats.totalCost);
+        totalsSummary.put("totalCost", totalCostActual);
         totalsSummary.put("totalTimeMs", totalStats.totalTimeMs);
         totalsSummary.put("averageTableRecall", totalStats.getAverageTableRecall());
         totalsSummary.put("accuracyEx", totalStats.getAccuracyEx());

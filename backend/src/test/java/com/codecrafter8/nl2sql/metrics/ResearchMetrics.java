@@ -3,8 +3,6 @@ package com.codecrafter8.nl2sql.metrics;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -16,9 +14,13 @@ import java.util.stream.Collectors;
  */
 public class ResearchMetrics {
 
-    // Stałe dla kosztów API
-    private static final double INPUT_COST_PER_1M = 0.15;  // $0.15 / 1M input tokens
-    private static final double OUTPUT_COST_PER_1M = 0.60;  // $0.60 / 1M output tokens
+    private static final double DEFAULT_INPUT_COST_PER_1M = 0.15;  // $0.15 / 1M input tokens
+    private static final double DEFAULT_OUTPUT_COST_PER_1M = 0.60;  // $0.60 / 1M output tokens
+
+    private static final java.util.Map<String, double[]> MODEL_COSTS = java.util.Map.of(
+            "gpt-4o-mini", new double[]{DEFAULT_INPUT_COST_PER_1M, DEFAULT_OUTPUT_COST_PER_1M},
+            "gpt-4o", new double[]{2.50, 10.0}
+    );
 
     /**
      * Oblicza Execution Accuracy (EX)
@@ -71,13 +73,39 @@ public class ResearchMetrics {
     }
 
     /**
-     * Oblicza szacunkowy koszt API (OpenAI GPT-4)
+     * Oblicza szacunkowy koszt API dla domyślnego/rozpoznanego modelu.
+     * Metoda domyślna odczytuje nazwę modelu z właściwości systemowej
+     * `spring.ai.openai.chat.options.model` lub zmiennej środowiskowej `NL2SQL_MODEL`.
+     * Jeśli brak wartości, przyjmujemy `gpt-4o-mini`.
      *
      * @return Szacunkowy koszt w USD
      */
     public static double calculateCost(int inputTokens, int outputTokens) {
-        return (inputTokens / 1_000_000.0) * INPUT_COST_PER_1M
-                + (outputTokens / 1_000_000.0) * OUTPUT_COST_PER_1M;
+        String model = resolveModelFromEnv();
+        return calculateCost(inputTokens, outputTokens, model);
+    }
+
+    /**
+     * Oblicza szacunkowy koszt API dla podanego modelu.
+     *
+     * @param inputTokens  liczba tokenów wejściowych
+     * @param outputTokens liczba tokenów wyjściowych
+     * @param model        nazwa modelu (np. "gpt-4o-mini", "gpt-4o")
+     * @return szacunkowy koszt w USD
+     */
+    public static double calculateCost(int inputTokens, int outputTokens, String model) {
+        double[] costs = MODEL_COSTS.getOrDefault(
+                model == null ? "" : model.toLowerCase(),
+                MODEL_COSTS.get("gpt-4o-mini")
+        );
+        double inputPer1M = costs[0];
+        double outputPer1M = costs[1];
+        return (inputTokens / 1_000_000.0) * inputPer1M + (outputTokens / 1_000_000.0) * outputPer1M;
+    }
+
+    private static String resolveModelFromEnv() {
+        String model = System.getProperty("spring.ai.openai.chat.options.model");
+        return model == null || model.isBlank() ? "gpt-4o-mini" : model;
     }
 
     /**
@@ -176,19 +204,6 @@ public class ResearchMetrics {
         public static QueryMetrics failure(int id,
                                            String question,
                                            String level,
-                                           long executionTimeMs,
-                                           String goldSql,
-                                           String generatedSql,
-                                           String analysis,
-                                           List<String> selectedTables,
-                                           List<String> requiredTables,
-                                           Throwable error) {
-            return failure(id, question, level, 0, 0, 0.0, executionTimeMs, goldSql, generatedSql, analysis, selectedTables, requiredTables, error);
-        }
-
-        public static QueryMetrics failure(int id,
-                                           String question,
-                                           String level,
                                            int inputTokens,
                                            int outputTokens,
                                            double cost,
@@ -233,12 +248,6 @@ public class ResearchMetrics {
             return exactMatch * 100;
         }
 
-        private static String stackTraceToString(Throwable error) {
-            StringWriter stringWriter = new StringWriter();
-            error.printStackTrace(new PrintWriter(stringWriter));
-            return stringWriter.toString();
-        }
-
         @Override
         public String toString() {
             String tablesInfo = String.format("Tables found:%s | Tables expected:%s",
@@ -247,13 +256,16 @@ public class ResearchMetrics {
 
             if (isFailure()) {
                 return String.format(
-                        "ID:%d [%-10s] | %s | %s | Error:%s - %s | Time:%dms",
+                        "ID:%d [%-10s] | %s | %s | Error:%s - %s | In:%d Out:%d | Cost:$%.6f | Time:%dms",
                         id,
                         level,
                         status,
                         tablesInfo,
                         errorType,
                         errorMessage,
+                        inputTokens,
+                        outputTokens,
+                        cost,
                         executionTimeMs
                 );
             }

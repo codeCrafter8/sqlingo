@@ -1,4 +1,4 @@
-package com.codecrafter8.nl2sql.evaluation.schema;
+package com.codecrafter8.nl2sql.evaluation.prompt;
 
 import com.codecrafter8.nl2sql.dto.SchemaContextMode;
 import com.codecrafter8.nl2sql.evaluation.support.AbstractResearchEvaluationIT;
@@ -81,8 +81,3 @@ class PromptTechniquesEvaluationIT {
         }
     }
 }
-
-
-
-
-
