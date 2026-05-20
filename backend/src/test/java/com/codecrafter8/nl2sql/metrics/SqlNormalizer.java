@@ -31,7 +31,6 @@ public final class SqlNormalizer {
         s = normalizeWhitespace(s);
         s = uppercaseKeywords(s);
         s = normalizeQuotes(s);
-        s = normalizeTableAliases(s);
         s = normalizeWhitespace(s);
         return s;
     }
@@ -93,11 +92,4 @@ public final class SqlNormalizer {
         return normalized.replaceAll("\"([\\w.]+)\"", "$1");
     }
 
-    private static String normalizeTableAliases(String sql) {
-        return sql.replaceAll(
-                "(?i)((?:FROM|JOIN)\\s+\\w+)\\s+AS\\s+(\\w+)",
-                "$1 $2"
-        );
-    }
 }
-

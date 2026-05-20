@@ -127,7 +127,7 @@ public abstract class AbstractResearchEvaluationIT {
                 List<Map<String, Object>> generatedResults = (List<Map<String, Object>>) response.getResults();
                 List<Map<String, Object>> goldResults = sqlExecutionService.executeQuery(test.getGoldSql());
 
-                double executionAccuracy = ResearchMetrics.calculateExecutionAccuracy(generatedResults, goldResults);
+                double executionAccuracy = ResearchMetrics.calculateExecutionAccuracy(generatedResults, goldResults, test.getGoldSql());
                 double exactMatch = ResearchMetrics.calculateExactMatch(response.getGeneratedSql(), test.getGoldSql());
                 double tableRecall = mode == SchemaContextMode.RAG
                         ? ResearchMetrics.calculateTableRecall(response.getSelectedTables(), test.getRequiredTables())

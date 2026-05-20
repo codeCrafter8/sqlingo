@@ -6,8 +6,8 @@ import lombok.Data;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Metryki: Execution Accuracy (EX), Exact Match (EM), Tokeny, Koszt, Czas
@@ -24,35 +24,98 @@ public class ResearchMetrics {
 
     /**
      * Oblicza Execution Accuracy (EX)
-     * Porównuje rzeczywiste wyniki z oczekiwanymi wynikami zapytania
+     * Porównuje rzeczywiste wyniki z oczekiwanymi wynikami zapytania,
+     * ignorując metadane kolumn i skupiając się wyłącznie na macierzy wartości.
      *
      * @param actualResults   Wyniki zwrócone przez wygenerowane zapytanie
      * @param expectedResults Wyniki spodziewane (gold standard)
-     * @return Dokładność od 0.0 do 1.0
+     * @return Dokładność 1.0 (pełny sukces) lub 0.0 (błąd)
      */
     public static double calculateExecutionAccuracy(
             List<Map<String, Object>> actualResults,
-            List<Map<String, Object>> expectedResults) {
+            List<Map<String, Object>> expectedResults,
+            String goldSql) {
 
         if (expectedResults == null || expectedResults.isEmpty()) {
-            return actualResults == null || actualResults.isEmpty() ? 1.0 : 0.0;
+            return (actualResults == null || actualResults.isEmpty()) ? 1.0 : 0.0;
         }
-        if (actualResults == null) {
+        if (actualResults == null || actualResults.size() != expectedResults.size()) {
             return 0.0;
         }
 
-        // Porównanie na podstawie reprezentacji tekstowej
-        List<String> actualSorted = actualResults.stream()
-                .map(row -> new TreeMap<>(row).toString())
-                .sorted()
-                .toList();
+        boolean requiresRowOrder = requiresOrdering(goldSql);
 
-        List<String> expectedSorted = expectedResults.stream()
-                .map(row -> new TreeMap<>(row).toString())
-                .sorted()
-                .toList();
+        Stream<String> actualStream = actualResults.stream()
+                .map(row -> row.values().stream()
+                        .map(ResearchMetrics::normalizeValue)
+                        .collect(Collectors.joining("\u0000")));
 
-        return actualSorted.equals(expectedSorted) ? 1.0 : 0.0;
+        Stream<String> expectedStream = expectedResults.stream()
+                .map(row -> row.values().stream()
+                        .map(ResearchMetrics::normalizeValue)
+                        .collect(Collectors.joining("\u0000")));
+
+        List<String> actualFinal;
+        List<String> expectedFinal;
+
+        if (requiresRowOrder) {
+            actualFinal = actualStream.toList();
+            expectedFinal = expectedStream.toList();
+        } else {
+            actualFinal = actualStream.sorted().toList();
+            expectedFinal = expectedStream.sorted().toList();
+        }
+
+        System.out.println("Actual Sorted: " + actualFinal);
+        System.out.println("Expected Sorted: " + expectedFinal);
+
+        return actualFinal.equals(expectedFinal) ? 1.0 : 0.0;
+    }
+
+    private static boolean requiresOrdering(String sql) {
+        if (sql == null) return false;
+
+        String stripped = sql.replaceAll("--[^\n]*", "")
+                .replaceAll("/\\*.*?\\*/", "")
+                .replaceAll("\\s+", " ")
+                .trim()
+                .toUpperCase();
+
+        int lastOrderByIndex = stripped.lastIndexOf(" ORDER BY ");
+
+        if (lastOrderByIndex == -1 && !stripped.startsWith("ORDER BY ")) {
+            return false;
+        }
+        if (lastOrderByIndex == -1) {
+            lastOrderByIndex = 0;
+        }
+
+        int openBrackets = 0;
+        int closeBrackets = 0;
+
+        for (int i = lastOrderByIndex; i < stripped.length(); i++) {
+            char c = stripped.charAt(i);
+            if (c == '(') openBrackets++;
+            if (c == ')') closeBrackets++;
+        }
+
+        return closeBrackets <= openBrackets;
+    }
+
+    private static String normalizeValue(Object val) {
+        if (val == null) {
+            return "NULL";
+        }
+
+        if (val instanceof Number) {
+            double d = ((Number) val).doubleValue();
+            if (d == (long) d) {
+                return String.valueOf((long) d);
+            }
+            return String.valueOf(d);
+        }
+
+        return String.valueOf(val).trim().toLowerCase();
     }
 
     /**
@@ -105,6 +168,7 @@ public class ResearchMetrics {
 
     private static String resolveModelFromEnv() {
         String model = System.getProperty("spring.ai.openai.chat.options.model");
+        System.out.println("Model: " + model);
         return model == null || model.isBlank() ? "gpt-4o-mini" : model;
     }
 
