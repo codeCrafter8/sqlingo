@@ -17,7 +17,7 @@ class FullSchemaVsRagEvaluationIT extends AbstractResearchEvaluationIT {
 
     @Test
     void compareFullSchemaAndRag() throws IOException {
-        runCampaign("full-schema-vs-rag", "EWALUACJA FULL_SCHEMA VS RAG", List.of(
+        runCampaign("1-full-schema-vs-rag", "EWALUACJA FULL_SCHEMA VS RAG", List.of(
                 SchemaContextMode.FULL_SCHEMA,
                 SchemaContextMode.RAG
         ));

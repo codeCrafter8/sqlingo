@@ -58,6 +58,12 @@ public class TableSchemaDocument {
                     .append("\n");
         }
 
+        if (foreignKeys != null && !foreignKeys.isEmpty()) {
+            text.append("Relacje (klucze obce): ")
+                    .append(String.join(", ", foreignKeys.values()))
+                    .append("\n");
+        }
+
         return text.toString();
     }
 

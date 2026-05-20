@@ -16,7 +16,7 @@ import java.util.List;
 @Tag("evaluation-model")
 class ModelComparisonFewShotFullSchemaIT {
 
-    @Nested
+    /*@Nested
     @DisplayName("gpt-4o-mini")
     @Tag("gpt-4o-mini")
     @SpringBootTest(properties = {
@@ -29,12 +29,12 @@ class ModelComparisonFewShotFullSchemaIT {
         @Test
         void evaluateGpt4oMini() throws IOException {
             runCampaign(
-                    "model-compare-gpt4o-mini",
+                    "3-model-compare-gpt4o-mini",
                     "EWALUACJA MODELU: gpt-4o-mini",
                     List.of(SchemaContextMode.FULL_SCHEMA)
             );
         }
-    }
+    }*/
 
     @Nested
     @DisplayName("gpt-4o")
@@ -49,7 +49,7 @@ class ModelComparisonFewShotFullSchemaIT {
         @Test
         void evaluateGpt4o() throws IOException {
             runCampaign(
-                    "model-compare-gpt4o",
+                    "3-model-compare-gpt4o",
                     "EWALUACJA MODELU: gpt-4o",
                     List.of(SchemaContextMode.FULL_SCHEMA)
             );

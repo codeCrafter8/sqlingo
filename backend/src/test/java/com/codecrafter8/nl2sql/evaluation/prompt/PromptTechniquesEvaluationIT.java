@@ -15,7 +15,7 @@ import java.util.List;
 @DisplayName("Prompt Techniques")
 class PromptTechniquesEvaluationIT {
 
-    @Tag("prompt-zero-shot")
+    /*@Tag("prompt-zero-shot")
     @SpringBootTest(
             properties = "app.sql-generation.system-prompt=prompts/openai/generate-sql-system-zero-shot.txt"
     )
@@ -28,14 +28,14 @@ class PromptTechniquesEvaluationIT {
         @DisplayName("Porównanie prompt techniques - Zero-Shot na Full Schema")
         void compareFullSchemaZeroShot() throws IOException {
             runCampaign(
-                    "zero-shot",
+                    "2-zero-shot",
                     "EWALUACJA: FULL_SCHEMA - ZERO-SHOT",
                     List.of(
                             SchemaContextMode.FULL_SCHEMA
                     )
             );
         }
-    }
+    }*/
 
     @Tag("prompt-few-shot")
     @SpringBootTest(
@@ -50,7 +50,7 @@ class PromptTechniquesEvaluationIT {
         @DisplayName("Porównanie prompt techniques - Few-Shot na Full Schema")
         void compareFullSchemaFewShot() throws IOException {
             runCampaign(
-                    "few-shot",
+                    "2-few-shot",
                     "EWALUACJA: FULL_SCHEMA - FEW-SHOT",
                     List.of(
                             SchemaContextMode.FULL_SCHEMA
@@ -72,7 +72,7 @@ class PromptTechniquesEvaluationIT {
         @DisplayName("Porównanie prompt techniques - Chain-of-Thoughts na Full Schema")
         void compareFullSchemaChainOfThoughts() throws IOException {
             runCampaign(
-                    "cof",
+                    "2-cof",
                     "EWALUACJA: FULL_SCHEMA - CHAIN-OF-THOUGHTS",
                     List.of(
                             SchemaContextMode.FULL_SCHEMA
