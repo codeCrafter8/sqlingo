@@ -136,19 +136,6 @@ public class ResearchMetrics {
     }
 
     /**
-     * Oblicza szacunkowy koszt API dla domyślnego/rozpoznanego modelu.
-     * Metoda domyślna odczytuje nazwę modelu z właściwości systemowej
-     * `spring.ai.openai.chat.options.model` lub zmiennej środowiskowej `NL2SQL_MODEL`.
-     * Jeśli brak wartości, przyjmujemy `gpt-4o-mini`.
-     *
-     * @return Szacunkowy koszt w USD
-     */
-    public static double calculateCost(int inputTokens, int outputTokens) {
-        String model = resolveModelFromEnv();
-        return calculateCost(inputTokens, outputTokens, model);
-    }
-
-    /**
      * Oblicza szacunkowy koszt API dla podanego modelu.
      *
      * @param inputTokens  liczba tokenów wejściowych
@@ -157,6 +144,7 @@ public class ResearchMetrics {
      * @return szacunkowy koszt w USD
      */
     public static double calculateCost(int inputTokens, int outputTokens, String model) {
+        System.out.println("Model: " + model);
         double[] costs = MODEL_COSTS.getOrDefault(
                 model == null ? "" : model.toLowerCase(),
                 MODEL_COSTS.get("gpt-4o-mini")
@@ -164,12 +152,6 @@ public class ResearchMetrics {
         double inputPer1M = costs[0];
         double outputPer1M = costs[1];
         return (inputTokens / 1_000_000.0) * inputPer1M + (outputTokens / 1_000_000.0) * outputPer1M;
-    }
-
-    private static String resolveModelFromEnv() {
-        String model = System.getProperty("spring.ai.openai.chat.options.model");
-        System.out.println("Model: " + model);
-        return model == null || model.isBlank() ? "gpt-4o-mini" : model;
     }
 
     /**

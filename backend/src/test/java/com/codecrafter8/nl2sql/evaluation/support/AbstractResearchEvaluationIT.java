@@ -135,7 +135,7 @@ public abstract class AbstractResearchEvaluationIT {
 
                 int promptTokens = safeTokenCount(response.getPromptTokens());
                 int completionTokens = safeTokenCount(response.getCompletionTokens());
-                double cost = ResearchMetrics.calculateCost(promptTokens, completionTokens);
+                double cost = ResearchMetrics.calculateCost(promptTokens, completionTokens, resolvedModel());
 
                 QueryMetrics metrics = QueryMetrics.success(
                         test.getId(),
@@ -171,7 +171,7 @@ public abstract class AbstractResearchEvaluationIT {
                 long executionTime = System.currentTimeMillis() - startTime;
                 int promptTokens = response != null ? safeTokenCount(response.getPromptTokens()) : 0;
                 int completionTokens = response != null ? safeTokenCount(response.getCompletionTokens()) : 0;
-                double cost = ResearchMetrics.calculateCost(promptTokens, completionTokens);
+                double cost = ResearchMetrics.calculateCost(promptTokens, completionTokens, resolvedModel());
 
                 QueryMetrics metrics = QueryMetrics.failure(
                         test.getId(),
@@ -456,7 +456,7 @@ public abstract class AbstractResearchEvaluationIT {
                                              Throwable error) {
         int promptTokens = response != null ? safeTokenCount(response.getPromptTokens()) : 0;
         int completionTokens = response != null ? safeTokenCount(response.getCompletionTokens()) : 0;
-        double cost = ResearchMetrics.calculateCost(promptTokens, completionTokens);
+        double cost = ResearchMetrics.calculateCost(promptTokens, completionTokens, resolvedModel());
         return QueryMetrics.failure(
                 test.getId(),
                 test.getQuestion(),

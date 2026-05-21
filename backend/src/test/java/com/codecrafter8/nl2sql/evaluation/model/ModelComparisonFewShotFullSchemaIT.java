@@ -21,7 +21,7 @@ class ModelComparisonFewShotFullSchemaIT {
     @Tag("gpt-4o-mini")
     @SpringBootTest(properties = {
             "spring.ai.openai.chat.options.model=gpt-4o-mini",
-            "app.sql-generation.system-prompt=prompts/openai/generate-sql-system-few-shot.txt"
+            "app.sql-generation.system-prompt=prompts/openai/generate-sql-system-zero-shot.txt"
     })
     @ActiveProfiles("test")
     class Gpt4oMiniEvaluation extends AbstractResearchEvaluationIT {
@@ -41,7 +41,7 @@ class ModelComparisonFewShotFullSchemaIT {
     @Tag("gpt-4o")
     @SpringBootTest(properties = {
             "spring.ai.openai.chat.options.model=gpt-4o",
-            "app.sql-generation.system-prompt=prompts/openai/generate-sql-system-few-shot.txt"
+            "app.sql-generation.system-prompt=prompts/openai/generate-sql-system-zero-shot.txt"
     })
     @ActiveProfiles("test")
     class Gpt4oEvaluation extends AbstractResearchEvaluationIT {

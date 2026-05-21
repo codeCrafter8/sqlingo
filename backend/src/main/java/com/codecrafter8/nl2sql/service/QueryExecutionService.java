@@ -27,6 +27,8 @@ import java.util.Map;
 public class QueryExecutionService {
 
     private static final String SELF_CORRECT_SQL_USER_PROMPT = "prompts/openai/self-correct-sql-user.txt";
+    private static final String MARKDOWN_SQL_PREFIX = "```sql";
+    private static final String MARKDOWN_FENCE = "```";
 
     @Value("${app.llm.self-correction-enabled:false}")
     private boolean selfCorrectionEnabled = false;
@@ -59,7 +61,7 @@ public class QueryExecutionService {
             selectedTables = contextResult.selectedTables();
 
             LlmResponse llmResponse = provider.generateSQL(request.getNaturalLanguageQuery(), schemaContext);
-            String initialSql = llmResponse.sql();
+            String initialSql = sanitizeGeneratedSql(llmResponse.sql());
             log.info("Generated SQL: {}", initialSql);
             queryLog.setGeneratedSql(initialSql);
             queryLog.setPromptTokens(llmResponse.promptTokens());
@@ -106,7 +108,7 @@ public class QueryExecutionService {
                     request.getNaturalLanguageQuery(), sql, e.getMessage());
 
             LlmResponse correctionResponse = provider.generateSQL(correctionPrompt, schema);
-            String correctedSql = correctionResponse.sql();
+            String correctedSql = sanitizeGeneratedSql(correctionResponse.sql());
 
             log.info("Otrzymano poprawiony SQL: {}", correctedSql);
 
@@ -138,6 +140,26 @@ public class QueryExecutionService {
         if (!sqlExecutionService.isReadOnlyQuery(sql)) {
             throw new IllegalArgumentException("Only SELECT queries are allowed");
         }
+    }
+
+    private String sanitizeGeneratedSql(String sql) {
+        if (sql == null) {
+            return "";
+        }
+
+        String normalized = sql.trim();
+
+        if (normalized.startsWith(MARKDOWN_SQL_PREFIX) && normalized.endsWith(MARKDOWN_FENCE)) {
+            normalized = normalized.substring(MARKDOWN_SQL_PREFIX.length(), normalized.length() - MARKDOWN_FENCE.length()).trim();
+        } else if (normalized.startsWith(MARKDOWN_FENCE) && normalized.endsWith(MARKDOWN_FENCE)) {
+            normalized = normalized.substring(MARKDOWN_FENCE.length(), normalized.length() - MARKDOWN_FENCE.length()).trim();
+        }
+
+        if (normalized.endsWith(";")) {
+            normalized = normalized.substring(0, normalized.length() - 1).trim();
+        }
+
+        return normalized;
     }
 
     private LLMProvider getProviderOrThrow() {
