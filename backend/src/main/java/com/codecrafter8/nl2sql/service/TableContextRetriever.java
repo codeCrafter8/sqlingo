@@ -1,6 +1,7 @@
 package com.codecrafter8.nl2sql.service;
 
 import com.codecrafter8.nl2sql.config.RagProperties;
+import com.codecrafter8.nl2sql.dto.SchemaContextMode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
@@ -23,17 +24,28 @@ public class TableContextRetriever {
     private final SchemaIntrospectionService schemaIntrospectionService;
     private final RagProperties ragProperties;
 
+    public record SchemaContextResult(String schemaContext, List<String> selectedTables) {
+    }
+
+    public SchemaContextResult retrieveRelevantSchemaContext(String naturalLanguageQuery, SchemaContextMode mode) {
+        if (mode == SchemaContextMode.FULL_SCHEMA) {
+            log.debug("Schema context mode: FULL_SCHEMA");
+            return new SchemaContextResult(schemaIntrospectionService.getSchemaContextForLLM(), List.of());
+        }
+        return retrieveRelevantSchemaContext(naturalLanguageQuery);
+    }
+
     /**
      * Retrieve relevant tables for a given natural language query
      * Returns a focused schema context containing only the most relevant tables
      *
      * @param naturalLanguageQuery User's query in natural language
-     * @return Schema context string containing relevant tables, or full schema if RAG is disabled/fails
+     * @return Schema context + selected tables, or full schema if RAG is disabled/fails
      */
-    public String retrieveRelevantSchemaContext(String naturalLanguageQuery) {
+    public SchemaContextResult retrieveRelevantSchemaContext(String naturalLanguageQuery) {
         if (!ragProperties.isEnabled()) {
             log.debug("RAG is disabled, returning full schema");
-            return schemaIntrospectionService.getSchemaContextForLLM();
+            return new SchemaContextResult(schemaIntrospectionService.getSchemaContextForLLM(), List.of());
         }
 
         try {
@@ -46,6 +58,9 @@ public class TableContextRetriever {
 
             // Search vector store
             List<Document> relevantDocs = vectorStore.similaritySearch(searchRequest);
+            relevantDocs.forEach(doc -> log.info("SCORE_DEBUG | table={} | score={}",
+                    doc.getMetadata().get("table_name"),
+                    doc.getMetadata().get("distance")));
 
             if (relevantDocs.isEmpty()) {
                 log.warn("No relevant tables found above threshold {}. Using fallback strategy.",
@@ -53,11 +68,11 @@ public class TableContextRetriever {
 
                 if (ragProperties.isFallbackToFullSchema()) {
                     log.debug("Fallback: returning full schema");
-                    return schemaIntrospectionService.getSchemaContextForLLM();
-                } else {
-                    log.warn("Fallback disabled - returning empty context");
-                    return "No relevant tables found for this query.";
+                    return new SchemaContextResult(schemaIntrospectionService.getSchemaContextForLLM(), List.of());
                 }
+
+                log.warn("Fallback disabled - returning empty context");
+                return new SchemaContextResult("Brak pasujących tabel.", List.of());
             }
 
             // Extract table names from documents
@@ -70,39 +85,30 @@ public class TableContextRetriever {
             log.info("Retrieved {} relevant tables: {}", relevantTables.size(), relevantTables);
 
             // Build focused schema context
-            return buildFocusedSchemaContext(relevantTables, relevantDocs);
+            return new SchemaContextResult(buildFocusedSchemaContext(relevantDocs), relevantTables);
 
         } catch (Exception e) {
             log.error("Error during RAG retrieval, falling back to full schema", e);
-            return schemaIntrospectionService.getSchemaContextForLLM();
+            return new SchemaContextResult(schemaIntrospectionService.getSchemaContextForLLM(), List.of());
         }
     }
 
     /**
      * Build a focused schema context containing only the specified tables
      */
-    private String buildFocusedSchemaContext(List<String> tableNames, List<Document> documents) {
+    private String buildFocusedSchemaContext(List<Document> documents) {
         StringBuilder context = new StringBuilder();
+        context.append("Schemat bazy danych (tabele istotne dla zapytania):\n\n");
 
-        context.append("Database Schema (Spider Hospital Database - Focused Context):\n\n");
-        context.append("This is a hospital management database. ");
-        context.append("The following tables are most relevant to your query:\n\n");
+        for (Document doc : documents) {
+            String fullSchema = (String) doc.getMetadata().get("full_schema_prompt");
 
-        // Add each relevant table's full schema
-        for (int i = 0; i < tableNames.size(); i++) {
-            Document doc = documents.get(i);
-
-            // Add relevance indicator
-            //todo: think of it
-            context.append(String.format("[Relevance Rank: %d]\n", i + 1));
-
-            // Add the embedded text (contains full table info)
-            context.append(doc.getContent());
-            context.append("\n");
+            if (fullSchema != null) {
+                context.append(fullSchema).append("\n\n---\n\n");
+            } else {
+                context.append(doc.getContent()).append("\n\n---\n\n");
+            }
         }
-
-        context.append("\n");
-        context.append("Note: Focus your SQL query on these tables as they are most relevant to the user's question.\n");
 
         return context.toString();
     }

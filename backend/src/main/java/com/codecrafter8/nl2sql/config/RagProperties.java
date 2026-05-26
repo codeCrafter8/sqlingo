@@ -1,5 +1,6 @@
 package com.codecrafter8.nl2sql.config;
 
+import com.codecrafter8.nl2sql.dto.SchemaContextMode;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -28,10 +29,15 @@ public class RagProperties {
     /**
      * Fallback to full schema if no tables meet threshold
      */
-    private boolean fallbackToFullSchema = true;
+    private boolean fallbackToFullSchema = false;
 
     /**
      * Index schema on application startup
      */
     private boolean indexOnStartup = true;
+
+    /**
+     * Default schema context mode used when request does not override it.
+     */
+    private SchemaContextMode mode = SchemaContextMode.RAG;
 }

@@ -1,5 +1,7 @@
 package com.codecrafter8.nl2sql.service.llm;
 
+import com.codecrafter8.nl2sql.dto.LlmResponse;
+
 /**
  * Interface for LLM providers (OpenAI, etc.)
  */
@@ -12,7 +14,7 @@ public interface LLMProvider {
      * @param schemaContext        The database schema context
      * @return The generated SQL query
      */
-    String generateSQL(String naturalLanguageQuery, String schemaContext) throws LLMException;
+    LlmResponse generateSQL(String naturalLanguageQuery, String schemaContext) throws LLMException;
 
     /**
      * Generate an explanation for a given SQL query

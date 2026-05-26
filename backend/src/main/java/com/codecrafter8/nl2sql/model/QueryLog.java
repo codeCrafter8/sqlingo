@@ -31,6 +31,9 @@ public class QueryLog {
     @Column(columnDefinition = "TEXT")
     private String error;
 
+    @Column(columnDefinition = "TEXT")
+    private String analysis;
+
     @Enumerated(EnumType.STRING)
     private QueryStatus status;
 
@@ -38,6 +41,9 @@ public class QueryLog {
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    private Integer promptTokens;
+    private Integer completionTokens;
 
     @PrePersist
     protected void onCreate() {

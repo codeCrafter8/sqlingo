@@ -1,0 +1,505 @@
+[
+  {
+    "id": 1,
+    "level": "Easy",
+    "question": "Znajdź identyfikator wizyty z najpóźniejszą datą rozpoczęcia.",
+    "goldSql": "SELECT appointmentid FROM appointment ORDER BY START DESC LIMIT 1",
+    "requiredTables": [
+      "appointment"
+    ]
+  },
+  {
+    "id": 2,
+    "level": "Easy",
+    "question": "Ilu pacjentów przebywa w pokoju numer 112?",
+    "goldSql": "SELECT count(patient) FROM stay WHERE room = 112",
+    "requiredTables": [
+      "stay"
+    ]
+  },
+  {
+    "id": 3,
+    "level": "Easy",
+    "question": "Znajdź pacjenta, który ostatnio przebywał w pokoju 111.",
+    "goldSql": "SELECT patient FROM stay WHERE room = 111 ORDER BY staystart DESC LIMIT 1",
+    "requiredTables": [
+      "stay"
+    ]
+  },
+  {
+    "id": 4,
+    "level": "Easy",
+    "question": "Jakie są unikalne kody bloków, które mają dostępne pokoje?",
+    "goldSql": "SELECT DISTINCT blockcode FROM room WHERE unavailable = 0",
+    "requiredTables": [
+      "room"
+    ]
+  },
+  {
+    "id": 5,
+    "level": "Easy",
+    "question": "Ile jest różnych typów pokoi?",
+    "goldSql": "SELECT count(DISTINCT roomtype) FROM room",
+    "requiredTables": [
+      "room"
+    ]
+  },
+  {
+    "id": 6,
+    "level": "Easy",
+    "question": "Znajdź nazwiska lekarzy, których nazwa stanowiska zawiera słowo „senior”.",
+    "goldSql": "SELECT name FROM physician WHERE POSITION LIKE '%senior%'",
+    "requiredTables": [
+      "physician"
+    ]
+  },
+  {
+    "id": 7,
+    "level": "Easy",
+    "question": "Znajdź pacjenta, który przeszedł zabieg w najnowszym terminie.",
+    "goldSql": "SELECT patient FROM undergoes ORDER BY dateundergoes DESC LIMIT 1",
+    "requiredTables": [
+      "undergoes"
+    ]
+  },
+  {
+    "id": 8,
+    "level": "Easy",
+    "question": "Wymień nazwiska wszystkich unikalnych pielęgniarek w porządku alfabetycznym.",
+    "goldSql": "SELECT DISTINCT name FROM nurse ORDER BY name",
+    "requiredTables": [
+      "nurse"
+    ]
+  },
+  {
+    "id": 9,
+    "level": "Easy",
+    "question": "Wymień nazwy wszystkich unikalnych leków w porządku alfabetycznym.",
+    "goldSql": "SELECT DISTINCT name FROM medication ORDER BY name",
+    "requiredTables": [
+      "medication"
+    ]
+  },
+  {
+    "id": 10,
+    "level": "Easy",
+    "question": "Wymień identyfikatory pracowników (lekarzy) wraz z identyfikatorami ich głównych oddziałów.",
+    "goldSql": "SELECT physician, department FROM affiliated_with WHERE primaryaffiliation = 1",
+    "requiredTables": [
+      "affiliated_with"
+    ]
+  },
+  {
+    "id": 11,
+    "level": "Easy",
+    "question": "Które pielęgniarki mają dyżur na piętrze 1 w bloku 1? Podaj ich identyfikatory.",
+    "goldSql": "SELECT nurse FROM on_call WHERE blockfloor = 1 AND blockcode = 1",
+    "requiredTables": [
+      "on_call"
+    ]
+  },
+  {
+    "id": 12,
+    "level": "Easy",
+    "question": "Jaki jest najwyższy, najniższy i średni koszt procedur medycznych?",
+    "goldSql": "SELECT MAX(cost), MIN(cost), AVG(cost) FROM procedures",
+    "requiredTables": [
+      "procedures"
+    ]
+  },
+  {
+    "id": 13,
+    "level": "Easy",
+    "question": "Wymień nazwy i koszty wszystkich procedur, posortowane od najwyższego do najniższego kosztu.",
+    "goldSql": "SELECT name, cost FROM procedures ORDER BY cost DESC",
+    "requiredTables": [
+      "procedures"
+    ]
+  },
+  {
+    "id": 14,
+    "level": "Easy",
+    "question": "Znajdź trzy najdroższe procedury medyczne.",
+    "goldSql": "SELECT name FROM procedures ORDER BY cost DESC LIMIT 3",
+    "requiredTables": [
+      "procedures"
+    ]
+  },
+  {
+    "id": 15,
+    "level": "Easy",
+    "question": "Ile łącznie wizyt zarejestrowano w systemie?",
+    "goldSql": "SELECT count(*) FROM appointment",
+    "requiredTables": [
+      "appointment"
+    ]
+  },
+  {
+    "id": 16,
+    "level": "Medium",
+    "question": "Który departament ma największą liczbę pracowników?",
+    "goldSql": "SELECT T2.name FROM affiliated_with AS T1 JOIN department AS T2 ON T1.department = T2.departmentid GROUP BY T2.departmentid ORDER BY count(*) DESC LIMIT 1",
+    "requiredTables": [
+      "affiliated_with",
+      "department"
+    ]
+  },
+  {
+    "id": 17,
+    "level": "Medium",
+    "question": "Jaki jest identyfikator lekarza kierującego oddziałem, który ma najmniejszą liczbę pracowników?",
+    "goldSql": "SELECT T2.head FROM affiliated_with AS T1 JOIN department AS T2 ON T1.department = T2.departmentid GROUP BY T2.departmentid ORDER BY count(*) ASC LIMIT 1",
+    "requiredTables": [
+      "affiliated_with",
+      "department"
+    ]
+  },
+  {
+    "id": 18,
+    "level": "Medium",
+    "question": "Jak nazywają się pacjenci, którzy umówili się na wizytę?",
+    "goldSql": "SELECT name FROM appointment AS T1 JOIN patient AS T2 ON T1.patient = T2.ssn",
+    "requiredTables": [
+      "appointment",
+      "patient"
+    ]
+  },
+  {
+    "id": 19,
+    "level": "Medium",
+    "question": "Podaj imiona i numery telefonów pacjentów, którzy odbyli więcej niż jedną wizytę.",
+    "goldSql": "SELECT name, phone FROM appointment AS T1 JOIN patient AS T2 ON T1.patient = T2.ssn GROUP BY T1.patient HAVING count(*) > 1",
+    "requiredTables": [
+      "appointment",
+      "patient"
+    ]
+  },
+  {
+    "id": 20,
+    "level": "Medium",
+    "question": "Wymień nazwiska lekarzy, którzy brali udział w jakiejkolwiek wizycie.",
+    "goldSql": "SELECT T2.name FROM appointment AS T1 JOIN physician AS T2 ON T1.Physician = T2.EmployeeID",
+    "requiredTables": [
+      "appointment",
+      "physician"
+    ]
+  },
+  {
+    "id": 21,
+    "level": "Medium",
+    "question": "Jak nazywa się pacjent, który umówił się na najnowszą wizytę?",
+    "goldSql": "SELECT T1.name FROM patient AS T1 JOIN appointment AS T2 ON T1.ssn = T2.patient ORDER BY T2.start DESC LIMIT 1",
+    "requiredTables": [
+      "patient",
+      "appointment"
+    ]
+  },
+  {
+    "id": 22,
+    "level": "Medium",
+    "question": "Jak nazywa się pielęgniarka, która obsługiwała największą liczbę wizyt?",
+    "goldSql": "SELECT T1.name FROM nurse AS T1 JOIN appointment AS T2 ON T1.employeeid = T2.prepnurse GROUP BY T1.employeeid ORDER BY count(*) DESC LIMIT 1",
+    "requiredTables": [
+      "nurse",
+      "appointment"
+    ]
+  },
+  {
+    "id": 23,
+    "level": "Medium",
+    "question": "Ilu pacjentów ma pod opieką każdy lekarz? Wymień nazwiska lekarzy i liczbę ich pacjentów.",
+    "goldSql": "SELECT T1.name, count(*) FROM physician AS T1 JOIN patient AS T2 ON T1.employeeid = T2.PCP GROUP BY T1.employeeid",
+    "requiredTables": [
+      "physician",
+      "patient"
+    ]
+  },
+  {
+    "id": 24,
+    "level": "Medium",
+    "question": "Znajdź nazwiska lekarzy, którzy opiekują się więcej niż jednym pacjentem.",
+    "goldSql": "SELECT T1.name FROM physician AS T1 JOIN patient AS T2 ON T1.employeeid = T2.PCP GROUP BY T1.employeeid HAVING count(*) > 1",
+    "requiredTables": [
+      "physician",
+      "patient"
+    ]
+  },
+  {
+    "id": 25,
+    "level": "Medium",
+    "question": "Znajdź liczbę pokoi znajdujących się na każdym piętrze bloku.",
+    "goldSql": "SELECT count(*), T1.blockfloor FROM BLOCK AS T1 JOIN room AS T2 ON T1.blockfloor = T2.blockfloor AND T1.blockcode = T2.blockcode GROUP BY T1.blockfloor",
+    "requiredTables": [
+      "block",
+      "room"
+    ]
+  },
+  {
+    "id": 26,
+    "level": "Medium",
+    "question": "Znajdź liczbę pokoi dla poszczególnych kodów bloków.",
+    "goldSql": "SELECT count(*), T1.blockcode FROM BLOCK AS T1 JOIN room AS T2 ON T1.blockfloor = T2.blockfloor AND T1.blockcode = T2.blockcode GROUP BY T1.blockcode",
+    "requiredTables": [
+      "block",
+      "room"
+    ]
+  },
+  {
+    "id": 27,
+    "level": "Medium",
+    "question": "Znajdź liczbę leków przepisanych dla każdej marki.",
+    "goldSql": "SELECT count(*), T1.name FROM medication AS T1 JOIN prescribes AS T2 ON T1.code = T2.medication GROUP BY T1.brand",
+    "requiredTables": [
+      "medication",
+      "prescribes"
+    ]
+  },
+  {
+    "id": 28,
+    "level": "Medium",
+    "question": "Znajdź nazwiska pielęgniarek, które asystują przy trwających zabiegach.",
+    "goldSql": "SELECT DISTINCT T2.name FROM undergoes AS T1 JOIN nurse AS T2 ON T1.AssistingNurse = T2.EmployeeID",
+    "requiredTables": [
+      "undergoes",
+      "nurse"
+    ]
+  },
+  {
+    "id": 29,
+    "level": "Medium",
+    "question": "Jak nazywa się lekarz, który przepisał najwyższą dawkę leku?",
+    "goldSql": "SELECT T1.name FROM physician AS T1 JOIN prescribes AS T2 ON T1.employeeid = T2.physician ORDER BY T2.dose DESC LIMIT 1",
+    "requiredTables": [
+      "physician",
+      "prescribes"
+    ]
+  },
+  {
+    "id": 30,
+    "level": "Medium",
+    "question": "Wymień nazwy oddziałów, z którymi lekarze są głównie stowarzyszeni.",
+    "goldSql": "SELECT DISTINCT T2.name FROM affiliated_with AS T1 JOIN department AS T2 ON T1.department = T2.departmentid WHERE PrimaryAffiliation = 1",
+    "requiredTables": [
+      "affiliated_with",
+      "department"
+    ]
+  },
+  {
+    "id": 31,
+    "level": "Medium",
+    "question": "Znajdź nazwiska pielęgniarek, które mają obecnie dyżur.",
+    "goldSql": "SELECT DISTINCT T1.name FROM nurse AS T1 JOIN on_call AS T2 ON T1.EmployeeID = T2.nurse",
+    "requiredTables": [
+      "nurse",
+      "on_call"
+    ]
+  },
+  {
+    "id": 32,
+    "level": "Hard",
+    "question": "Podaj nazwisko i stanowisko szefa oddziału, który ma najmniejszą liczbę pracowników.",
+    "goldSql": "SELECT T3.name, T3.position FROM affiliated_with AS T1 JOIN department AS T2 ON T1.department = T2.departmentid JOIN physician AS T3 ON T2.head = T3.EmployeeID GROUP BY T2.departmentid ORDER BY count(*) ASC LIMIT 1",
+    "requiredTables": [
+      "affiliated_with",
+      "department",
+      "physician"
+    ]
+  },
+  {
+    "id": 33,
+    "level": "Hard",
+    "question": "Wymień nazwiska lekarzy, którzy nigdy nie uczestniczyli w żadnej wizycie.",
+    "goldSql": "SELECT name FROM physician EXCEPT SELECT T2.name FROM appointment AS T1 JOIN physician AS T2 ON T1.Physician = T2.EmployeeID",
+    "requiredTables": [
+      "physician",
+      "appointment"
+    ]
+  },
+  {
+    "id": 34,
+    "level": "Hard",
+    "question": "Znajdź nazwiska wszystkich lekarzy oraz nazwy ich głównych oddziałów.",
+    "goldSql": "SELECT T1.name, T3.name FROM physician AS T1 JOIN affiliated_with AS T2 ON T1.EmployeeID = T2.physician JOIN department AS T3 ON T2.department = T3.DepartmentID WHERE T2.PrimaryAffiliation = 1",
+    "requiredTables": [
+      "physician",
+      "affiliated_with",
+      "department"
+    ]
+  },
+  {
+    "id": 35,
+    "level": "Medium",
+    "question": "Ile recept zostało wystawionych przez lekarza o nazwisku John Dorian?",
+    "goldSql": "SELECT count(*) FROM prescribes AS T1 JOIN physician AS T2 ON T1.physician = T2.EmployeeID WHERE T2.name = 'John Dorian'",
+    "requiredTables": [
+      "prescribes",
+      "physician"
+    ]
+  },
+  {
+    "id": 36,
+    "level": "Hard",
+    "question": "Znajdź nazwę leku przypisanego pacjentowi, który przebywa w pokoju numer 111.",
+    "goldSql": "SELECT T4.name FROM stay AS T1 JOIN patient AS T2 ON T1.Patient = T2.SSN JOIN Prescribes AS T3 ON T3.Patient = T2.SSN JOIN Medication AS T4 ON T3.Medication = T4.Code WHERE room = 111",
+    "requiredTables": [
+      "stay",
+      "patient",
+      "prescribes",
+      "medication"
+    ]
+  },
+  {
+    "id": 37,
+    "level": "Hard",
+    "question": "Jak nazywają się lekarze, którzy przepisali lek o nazwie „Thesisin”?",
+    "goldSql": "SELECT DISTINCT T1.name FROM physician AS T1 JOIN prescribes AS T2 ON T1.employeeid = T2.physician JOIN medication AS T3 ON T3.code = T2.medication WHERE T3.name = 'Thesisin'",
+    "requiredTables": [
+      "physician",
+      "prescribes",
+      "medication"
+    ]
+  },
+  {
+    "id": 38,
+    "level": "Hard",
+    "question": "Znajdź nazwisko i stanowisko lekarzy, którzy przepisali leki marki „X”.",
+    "goldSql": "SELECT DISTINCT T1.name, T1.position FROM physician AS T1 JOIN prescribes AS T2 ON T1.employeeid = T2.physician JOIN medication AS T3 ON T3.code = T2.medication WHERE T3.Brand = 'X'",
+    "requiredTables": [
+      "physician",
+      "prescribes",
+      "medication"
+    ]
+  },
+  {
+    "id": 39,
+    "level": "Hard",
+    "question": "Znajdź nazwiska wszystkich pacjentów, którzy przechodzą zabieg i przebywają w pokoju 111.",
+    "goldSql": "SELECT DISTINCT T2.name FROM undergoes AS T1 JOIN patient AS T2 ON T1.patient = T2.SSN JOIN stay AS T3 ON T1.Stay = T3.StayID WHERE T3.room = 111",
+    "requiredTables": [
+      "undergoes",
+      "patient",
+      "stay"
+    ]
+  },
+  {
+    "id": 40,
+    "level": "Hard",
+    "question": "Znajdź lekarzy przeszkolonych w procedurach, których koszt przekracza 5000.",
+    "goldSql": "SELECT T1.name FROM physician AS T1 JOIN trained_in AS T2 ON T1.employeeid = T2.physician JOIN procedures AS T3 ON T3.code = T2.treatment WHERE T3.cost > 5000",
+    "requiredTables": [
+      "physician",
+      "trained_in",
+      "procedures"
+    ]
+  },
+  {
+    "id": 41,
+    "level": "Hard",
+    "question": "Który lekarz został przeszkolony w najdroższej procedurze medycznej?",
+    "goldSql": "SELECT T1.name FROM physician AS T1 JOIN trained_in AS T2 ON T1.employeeid = T2.physician JOIN procedures AS T3 ON T3.code = T2.treatment ORDER BY T3.cost DESC LIMIT 1",
+    "requiredTables": [
+      "physician",
+      "trained_in",
+      "procedures"
+    ]
+  },
+  {
+    "id": 42,
+    "level": "Hard",
+    "question": "Jaki jest średni koszt procedur, w których przeszkolony został lekarz John Wen?",
+    "goldSql": "SELECT avg(T3.cost) FROM physician AS T1 JOIN trained_in AS T2 ON T1.employeeid = T2.physician JOIN procedures AS T3 ON T3.code = T2.treatment WHERE T1.name = 'John Wen'",
+    "requiredTables": [
+      "physician",
+      "trained_in",
+      "procedures"
+    ]
+  },
+  {
+    "id": 43,
+    "level": "Hard",
+    "question": "Znajdź nazwy procedur, w których przeszkolony został lekarz John Wen.",
+    "goldSql": "SELECT T3.name FROM physician AS T1 JOIN trained_in AS T2 ON T1.employeeid = T2.physician JOIN procedures AS T3 ON T3.code = T2.treatment WHERE T1.name = 'John Wen'",
+    "requiredTables": [
+      "physician",
+      "trained_in",
+      "procedures"
+    ]
+  },
+  {
+    "id": 44,
+    "level": "Hard",
+    "question": "Znajdź wszystkie procedury, które kosztują więcej niż 1000 lub w których przeszkolony został John Wen.",
+    "goldSql": "SELECT name FROM procedures WHERE cost > 1000 UNION SELECT T3.name FROM physician AS T1 JOIN trained_in AS T2 ON T1.employeeid = T2.physician JOIN procedures AS T3 ON T3.code = T2.treatment WHERE T1.name = 'John Wen'",
+    "requiredTables": [
+      "procedures",
+      "physician",
+      "trained_in"
+    ]
+  },
+  {
+    "id": 45,
+    "level": "Hard",
+    "question": "Znajdź nazwy wszystkich procedur kosztujących ponad 1000, w których lekarz John Wen NIE jest przeszkolony.",
+    "goldSql": "SELECT name FROM procedures WHERE cost > 1000 EXCEPT SELECT T3.name FROM physician AS T1 JOIN trained_in AS T2 ON T1.employeeid = T2.physician JOIN procedures AS T3 ON T3.code = T2.treatment WHERE T1.name = 'John Wen'",
+    "requiredTables": [
+      "procedures",
+      "physician",
+      "trained_in"
+    ]
+  },
+  {
+    "id": 46,
+    "level": "Hard",
+    "question": "Znajdź procedury o koszcie poniżej 5000, w których przeszkolony jest lekarz John Wen.",
+    "goldSql": "SELECT name FROM procedures WHERE cost < 5000 INTERSECT SELECT T3.name FROM physician AS T1 JOIN trained_in AS T2 ON T1.employeeid = T2.physician JOIN procedures AS T3 ON T3.code = T2.treatment WHERE T1.name = 'John Wen'",
+    "requiredTables": [
+      "procedures",
+      "physician",
+      "trained_in"
+    ]
+  },
+  {
+    "id": 47,
+    "level": "Hard",
+    "question": "Znajdź nazwiska lekarzy, którzy są stowarzyszeni zarówno z oddziałem Chirurgii (Surgery), jak i Psychiatrii (Psychiatry).",
+    "goldSql": "SELECT T1.name FROM physician AS T1 JOIN affiliated_with AS T2 ON T1.EmployeeID = T2.physician JOIN department AS T3 ON T2.department = T3.DepartmentID WHERE T3.name = 'Surgery' INTERSECT SELECT T1.name FROM physician AS T1 JOIN affiliated_with AS T2 ON T1.EmployeeID = T2.physician JOIN department AS T3 ON T2.department = T3.DepartmentID WHERE T3.name = 'Psychiatry'",
+    "requiredTables": [
+      "physician",
+      "affiliated_with",
+      "department"
+    ]
+  },
+  {
+    "id": 48,
+    "level": "Hard",
+    "question": "Znajdź nazwiska lekarzy stowarzyszonych z oddziałem Chirurgii lub Psychiatrii.",
+    "goldSql": "SELECT T1.name FROM physician AS T1 JOIN affiliated_with AS T2 ON T1.EmployeeID = T2.physician JOIN department AS T3 ON T2.department = T3.DepartmentID WHERE T3.name = 'Surgery' OR T3.name = 'Psychiatry'",
+    "requiredTables": [
+      "physician",
+      "affiliated_with",
+      "department"
+    ]
+  },
+  {
+    "id": 49,
+    "level": "Hard",
+    "question": "Znajdź nazwiska pacjentów, którzy nie używają leku o nazwie „Procrastin-X”.",
+    "goldSql": "SELECT name FROM patient EXCEPT SELECT T1.name FROM patient AS T1 JOIN Prescribes AS T2 ON T2.Patient = T1.SSN JOIN Medication AS T3 ON T2.Medication = T3.Code WHERE T3.name = 'Procrastin-X'",
+    "requiredTables": [
+      "patient",
+      "prescribes",
+      "medication"
+    ]
+  },
+  {
+    "id": 50,
+    "level": "Hard",
+    "question": "Podaj liczbę pacjentów, którzy nie stosują leku „Procrastin-X”.",
+    "goldSql": "SELECT count(*) FROM patient WHERE SSN NOT IN (SELECT T1.patient FROM Prescribes AS T1 JOIN Medication AS T2 ON T1.Medication = T2.Code WHERE T2.name = 'Procrastin-X')",
+    "requiredTables": [
+      "patient",
+      "prescribes",
+      "medication"
+    ]
+  }
+]

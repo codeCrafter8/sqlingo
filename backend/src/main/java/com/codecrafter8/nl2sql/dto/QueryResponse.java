@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,9 +18,14 @@ public class QueryResponse {
     private String naturalLanguageQuery;
     private String generatedSql;
     private String sqlExplanation;
+    private String analysis;
     private Object results;
     private int rowCount;
     private Long executionTimeMs;
     private String status;
     private String error;
+    private Integer promptTokens;
+    private Integer completionTokens;
+    private Integer totalTokens;
+    private List<String> selectedTables;
 }
