@@ -71,7 +71,8 @@ public class SQLExecutionService {
      */
     public boolean isReadOnlyQuery(String sql) {
         String normalizedSql = sql.trim().toUpperCase();
-        return normalizedSql.startsWith("SELECT");
+        // Accept queries starting with SELECT or WITH (CTE)
+        return normalizedSql.startsWith("SELECT") || normalizedSql.startsWith("WITH");
     }
 
     /**
