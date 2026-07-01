@@ -1,0 +1,43 @@
+<h2 class="text-lg font-semibold text-slate-900">Szczegóły techniczne</h2>
+<div class="mt-4 rounded-xl border border-slate-300 bg-slate-100/75 p-4">
+  <div class="flex items-center justify-between gap-3">
+    <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">Status</p>
+    <span class="rounded-full border px-3 py-1 text-xs font-semibold" [ngClass]="statusBadgeClass()">{{ statusLabel() }}</span>
+  </div>
+  <div class="mt-3 flex items-center gap-3">
+    <span class="inline-flex h-8 w-8 items-center justify-center rounded-full border" [ngClass]="statusIconClass()">
+      @if (isSuccess()) {
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      } @else if (isError()) {
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      } @else {
+        <svg viewBox="0 0 24 24" class="h-4 w-4 animate-spin" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      }
+    </span>
+    <p class="text-sm text-slate-700">{{ statusNote() }}</p>
+  </div>
+  <div class="mt-4">
+    <span class="inline-flex items-center rounded-full border border-slate-300 bg-slate-50/85 px-3 py-1 text-xs font-semibold text-slate-700">
+      Czas wykonania: {{ executionTimeLabel() }}
+    </span>
+  </div>
+  @if (showAutoCorrectionNotice()) {
+    <div class="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Zapytanie poprawione automatycznie</div>
+  }
+  @if (activeErrorLog()) {
+    <div class="mt-4 rounded-xl border border-rose-300 bg-rose-50 p-3">
+      <p class="text-xs font-semibold uppercase tracking-[0.16em] text-rose-700">Error Log</p>
+      <p class="mt-2 break-words font-mono text-xs text-rose-800">{{ activeErrorLog() }}</p>
+    </div>
+  }
+</div>
+<div class="sql-viewer mt-4 rounded-xl border border-slate-300 bg-slate-100/82 p-4">
+  <p class="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">Wygenerowany SQL</p>
+  <pre class="table-scroll"><code [highlight]="generatedSql()" [language]="'sql'"></code></pre>
+</div>

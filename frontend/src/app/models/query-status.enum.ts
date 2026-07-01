@@ -1,0 +1,7 @@
+export enum QueryStatus {
+  SUCCESS = 'SUCCESS',
+  FAILED = 'FAILED',
+  INVALID_SQL = 'INVALID_SQL',
+  ERROR = 'ERROR',
+  PENDING = 'PENDING'
+}
