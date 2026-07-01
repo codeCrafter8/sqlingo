@@ -32,7 +32,7 @@ public class QueryController {
 
         QueryResponse response = queryExecutionService.executeQuery(request);
 
-        if ("FAILED".equals(response.getStatus()) || "ERROR".equals(response.getStatus())) {
+        if ("FAILED".equals(response.getStatus()) || "ERROR".equals(response.getStatus()) || "INVALID_SQL".equals(response.getStatus())) {
             return ResponseEntity.badRequest().body(response);
         }
 
